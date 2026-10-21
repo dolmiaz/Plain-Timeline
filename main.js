@@ -713,11 +713,15 @@ function colorFor(plugin, item, index) {
 
 // fade the edge of a horizontally scrolling area while there is more to see
 function addScrollFade(scroller, owner) {
-  scroller.addClass('ptl-fade');
+  // a wrapper carries the edge shading, so nothing depends on CSS masks
+  const wrap = document.createElement('div');
+  wrap.className = 'ptl-fade-wrap';
+  scroller.parentElement.insertBefore(wrap, scroller);
+  wrap.appendChild(scroller);
   const update = () => {
     const max = scroller.scrollWidth - scroller.clientWidth;
-    scroller.toggleClass('can-left', scroller.scrollLeft > 2);
-    scroller.toggleClass('can-right', scroller.scrollLeft < max - 2);
+    wrap.toggleClass('can-left', scroller.scrollLeft > 2);
+    wrap.toggleClass('can-right', scroller.scrollLeft < max - 2);
   };
   scroller.addEventListener('scroll', update, { passive: true });
   observe(scroller, update, owner);
@@ -1096,7 +1100,7 @@ function showDetail(plugin, root, item, go, fmt, ctx, owner) {
   let panel = root.querySelector(':scope > .ptl-detail');
   if (!panel) {
     panel = root.createDiv({ cls: 'ptl-detail' });
-    const after = root.querySelector(':scope > .ptl-horizontal');
+    const after = root.querySelector(':scope > .ptl-fade-wrap');
     if (after && after.nextSibling) root.insertBefore(panel, after.nextSibling);
   }
   panel.empty();
