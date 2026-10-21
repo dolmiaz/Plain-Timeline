@@ -45,6 +45,8 @@ const DEFAULT_SETTINGS = {
   sortOrder: 'chronological',     // chronological | written
   horizontalMinWidth: 480,
   showWarnings: true,
+  noteViewFolders: '',            // one folder per line; notes inside show their timed headings as a timeline
+  noteViewLevel: 2,               // heading level that starts an entry (## by default)
 };
 
 /* ── i18n ─────────────────────────────────────────── */
@@ -92,6 +94,9 @@ const STRINGS = {
       sort: ['Order', 'Order of items in a timeline.'], sortChrono: 'Chronological', sortWritten: 'As written',
       minWidth: ['Horizontal minimum width', 'Minimum width (px) of the horizontal axis before it scrolls.'],
       warnings: ['Show notes about unreadable lines', 'List lines that could not be read (or were adjusted) under the timeline.'],
+      noteView: 'Note view',
+      noteFolders: ['Folders', 'Notes in these folders show headings that start with a time (e.g. "## 2026-10-21 23:52 Title" or "## 09:30 Title") as a timeline in reading view. One folder per line; * matches one folder name, ** any depth (e.g. Projects/*/Worklog). A note can opt in or out with "plain-timeline: notes" or "plain-timeline: off" in its properties.'],
+      noteLevel: ['Heading level', 'Which headings start an entry. Deeper headings belong to the entry above them.'],
     },
   },
   ja: {
@@ -136,6 +141,9 @@ const STRINGS = {
       sort: ['並び順', '年表の中の並び。'], sortChrono: '日付順', sortWritten: '書いた順',
       minWidth: ['横の最小幅', '横の時間軸がスクロールに切り替わる最小の幅(px)。'],
       warnings: ['読めない行のお知らせを表示', '読めなかった行や調整した行を年表の下に出す。'],
+      noteView: 'ノート表示',
+      noteFolders: ['フォルダ', 'ここに書いたフォルダの中のノートは、時刻で始まる見出し(「## 2026-10-21 23:52 タイトル」「## 09:30 タイトル」など)を閲覧モードで時系列に並べて表示する。1行に1フォルダ。* はフォルダ名1つ、** は任意の深さに当たる(例 Projects/*/Worklog)。ノートのプロパティに「plain-timeline: notes」「plain-timeline: off」と書くと、そのノートだけ対象に入れる・外すことができる。'],
+      noteLevel: ['見出しのレベル', '項目を始める見出し。それより深い見出しは上の項目の中身になる。'],
     },
   },
 };
@@ -1179,6 +1187,65 @@ function renderWarnings(root, warnings, fmt) {
 
 /* ── plugin ──────────────────────────────────────── */
 
+/* ── note view: timed headings in reading view ─────── */
+
+// "2026-10-21 23:52", "2026-10-22T00:02:16.69+09:00", "(2026-10-22 00:23 JST)" anywhere, or "09:30" at the start.
+// The time is shown as written; offsets are not converted.
+const NV_DATETIME = /[(（]?\s*(\d{4})-(\d{2})-(\d{2})[T ](\d{1,2}):(\d{2})(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?(?:\s*(?:JST|UTC|GMT))?\s*[)）]?/;
+const NV_TIME = /^(\d{1,2}):(\d{2})(?::\d{2})?(?:\s*(?:JST|UTC|GMT))?(?=\s|$)/;
+const NV_EDGE = /^[\s\-–—:：|・,、]+|[\s\-–—:：|・,、]+$/g;
+
+function noteHeadingTime(text) {
+  let m = text.match(NV_DATETIME);
+  if (m && +m[4] < 24) {
+    return {
+      date: { year: +m[1], month: +m[2], day: +m[3] },
+      time: `${m[4].padStart(2, '0')}:${m[5]}`,
+      match: m[0],
+      title: text.replace(m[0], ' ').replace(/[(（]\s*[)）]/g, '').replace(NV_EDGE, '').trim(),
+    };
+  }
+  m = text.match(NV_TIME);
+  if (m && +m[1] < 24) {
+    return { date: null, time: `${m[1].padStart(2, '0')}:${m[2]}`, match: m[0], title: text.slice(m[0].length).replace(NV_EDGE, '').trim() };
+  }
+  return null;
+}
+
+// headings of a note (outside front matter and code fences), with their parsed times
+function noteIndex(text, level) {
+  const lines = text.split('\n');
+  const heads = [];
+  let fence = null;
+  let i = 0;
+  if (lines[0] === '---') {
+    for (i = 1; i < lines.length && lines[i] !== '---' && lines[i] !== '...'; i++);
+    i++;
+  }
+  for (; i < lines.length; i++) {
+    const line = lines[i];
+    const f = line.match(/^\s{0,3}(`{3,}|~{3,})/);
+    if (f) {
+      if (!fence) fence = f[1];
+      else if (f[1][0] === fence[0] && f[1].length >= fence.length) fence = null;
+      continue;
+    }
+    if (fence) continue;
+    const h = line.match(/^(#{1,6})\s+(.*?)\s*#*\s*$/);
+    if (!h) continue;
+    const lv = h[1].length;
+    heads.push({ line: i, level: lv, time: lv === level ? noteHeadingTime(h[2]) : null });
+  }
+  return { lines, heads };
+}
+
+function folderMatcher(spec) {
+  const pats = (spec || '').split('\n').map(x => x.trim().replace(/^\/+|\/+$/g, '')).filter(Boolean);
+  const res = pats.map(p => new RegExp('^' + p.split('/').map(seg => seg === '**' ? '.*'
+    : seg.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '[^/]*')).join('/') + '(/|$)'));
+  return path => res.some(r => r.test(path));
+}
+
 class TimelineRender extends MarkdownRenderChild {}
 
 class PlainTimelinePlugin extends Plugin {
@@ -1187,6 +1254,10 @@ class PlainTimelinePlugin extends Plugin {
     this.rendered = new Set(); // timelines on screen, re-rendered when settings change
     this.saveSettingsSoon = debounce(() => this.saveSettings(), 400, true);
     this.registerMarkdownCodeBlockProcessor(BLOCK, (source, el, ctx) => this.render(source, el, ctx));
+    this.noteCache = new Map();
+    this.refreshNoteViewsSoon = debounce(() => this.refreshNoteViews(), 600, true);
+    this.inNoteFolder = folderMatcher(this.settings.noteViewFolders);
+    this.registerMarkdownPostProcessor((el, ctx) => this.noteView(el, ctx));
     this.addSettingTab(new PlainTimelineSettingTab(this.app, this));
   }
 
@@ -1304,6 +1375,78 @@ class PlainTimelinePlugin extends Plugin {
     return written;
   }
 
+  /* note view: each rendered block of a target note is styled as the time column + entry it belongs to */
+  noteViewOn(ctx) {
+    const fm = ctx.frontmatter && ctx.frontmatter[BLOCK];
+    if (fm === 'off' || fm === false) return false;
+    if (fm === 'notes' || fm === true) return true;
+    return this.inNoteFolder(ctx.sourcePath || '');
+  }
+
+  noteView(el, ctx) {
+    if (!this.noteViewOn(ctx)) return;
+    const info = ctx.getSectionInfo(el);
+    if (!info) return; // embeds, exports
+    const level = this.settings.noteViewLevel;
+    let idx = this.noteCache.get(ctx.sourcePath);
+    if (!idx || idx.text !== info.text || idx.level !== level) {
+      idx = Object.assign(noteIndex(info.text, level), { text: info.text, level });
+      this.noteCache.set(ctx.sourcePath, idx);
+    }
+    const { lines, heads } = idx;
+    const blank = (a, b) => { for (let i = a; i < b; i++) if (lines[i].trim()) return false; return true; };
+    // the entry heading that governs this block: nearest heading at or above the entry level
+    let owner = null; let next = null;
+    for (const h of heads) {
+      if (h.line > info.lineStart) { if (h.level <= level) { next = h; break; } continue; }
+      if (h.level <= level) owner = h;
+    }
+    if (!owner || !owner.time) return;
+    const end = next ? next.line : lines.length;
+    const hasBody = !blank(owner.line + 1, end);
+    el.addClass('ptl-nv');
+    // accent: the first period color (or mono), so the note view matches the timelines
+    const s = this.settings;
+    const first = s.colorMode === 'mono' ? 'mono'
+      : (s.colorOrder.split(/[,\s]+/).map(c => c.trim().toLowerCase()).find(c => COLORS.includes(c)) || 'blue');
+    el.addClass(`ptl-c-${first}`);
+    if (owner.line === info.lineStart) {
+      el.addClass('ptl-nv-head');
+      el.toggleClass('ptl-nv-open', hasBody);
+      const h = el.querySelector(`h${level}`);
+      if (!h || h.querySelector('.ptl-nv-time')) return;
+      // drop the written date/time from the heading text; the time column shows it instead
+      const walker = document.createTreeWalker(h, NodeFilter.SHOW_TEXT);
+      for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+        if (n.nodeValue.includes(owner.time.match)) {
+          n.nodeValue = n.nodeValue.replace(owner.time.match, ' ').replace(/[(（]\s*[)）]/g, '').replace(NV_EDGE, '');
+          break;
+        }
+      }
+      const prev = heads.filter(x => x.time && x.line < owner.line).pop();
+      const d = owner.time.date;
+      const newDay = d && (!prev || !prev.time.date || ['year', 'month', 'day'].some(k => prev.time.date[k] !== d[k]));
+      const col = createDiv({ cls: 'ptl-nv-when' });
+      if (newDay) col.createDiv({ cls: 'ptl-nv-date', text: new Formatter(this.settings).date(d) });
+      col.createSpan({ cls: 'ptl-nv-time', text: owner.time.time });
+      const fold = h.querySelector('.heading-collapse-indicator');
+      if (fold) fold.after(col); else h.prepend(col);
+      return;
+    }
+    el.addClass('ptl-nv-body');
+    el.toggleClass('ptl-nv-first', blank(owner.line + 1, info.lineStart));
+    el.toggleClass('ptl-nv-last', blank(info.lineEnd + 1, end));
+  }
+
+  refreshNoteViews() {
+    this.inNoteFolder = folderMatcher(this.settings.noteViewFolders);
+    this.noteCache.clear();
+    this.app.workspace.getLeavesOfType('markdown').forEach(leaf => {
+      const v = leaf.view;
+      if (v && v.previewMode && typeof v.previewMode.rerender === 'function') v.previewMode.rerender(true);
+    });
+  }
+
   async saveSettings() {
     await this.saveData(this.settings);
     // re-render the timelines on screen (reading view, Live Preview, embeds) with the new settings
@@ -1375,6 +1518,19 @@ class PlainTimelineSettingTab extends PluginSettingTab {
         if (n > 0) { s.horizontalMinWidth = n; p.saveSettingsSoon(); }
       }));
     toggle('showWarnings', t.warnings);
+
+    new Setting(containerEl).setName(t.noteView).setHeading();
+    new Setting(containerEl).setName(t.noteFolders[0]).setDesc(t.noteFolders[1])
+      .addTextArea(tx => {
+        tx.setPlaceholder('Projects/*/Worklog').setValue(s.noteViewFolders);
+        tx.inputEl.rows = 4;
+        tx.onChange(v => { s.noteViewFolders = v; p.saveSettingsSoon(); p.refreshNoteViewsSoon(); });
+      });
+    new Setting(containerEl).setName(t.noteLevel[0]).setDesc(t.noteLevel[1])
+      .addDropdown(d => {
+        for (const n of [1, 2, 3, 4]) d.addOption(String(n), '#'.repeat(n));
+        d.setValue(String(s.noteViewLevel)).onChange(async v => { s.noteViewLevel = +v; await p.saveSettings(); p.refreshNoteViews(); });
+      });
   }
 }
 

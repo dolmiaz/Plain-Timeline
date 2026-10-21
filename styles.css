@@ -224,3 +224,65 @@
 .ptl-v-desc ul, .ptl-v-desc ol, .ptl-ch-desc ul, .ptl-ch-desc ol, .ptl-sv-desc ul, .ptl-sv-desc ol,
 .ptl-h-legend-desc ul, .ptl-h-legend-desc ol, .ptl-detail-desc ul, .ptl-detail-desc ol { margin: .2em 0; padding-left: 1.3em; }
 .ptl-tip { white-space: pre-line; }
+
+/* ── note view: timed headings in reading view ─────── */
+/* same vocabulary as the timelines: thin neutral line, colored accent from the first period color */
+.ptl-nv {
+  --ptl-nv-col: 100px;
+  --ptl-nv-gap: 16px;
+  --ptl-line: var(--background-modifier-border-hover, var(--background-modifier-border));
+  position: relative;
+  display: flow-root;
+}
+.ptl-nv-head > :is(h1, h2, h3, h4) {
+  position: relative;
+  padding-left: calc(var(--ptl-nv-col) + var(--ptl-nv-gap));
+  margin-bottom: 0.4em;
+}
+/* the time column is pinned to the left edge, whatever else the heading contains (fold arrow etc.) */
+.ptl-nv-when {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: var(--ptl-nv-col);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.ptl-nv-date {
+  font-size: var(--font-ui-smaller);
+  font-weight: var(--font-normal);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.ptl-nv-time {
+  font-size: 0.8em;
+  font-variant-numeric: tabular-nums;
+  padding: 0 0.15em 0.1em;
+  border-bottom: 2px solid var(--ptl-c, var(--text-muted));
+  white-space: nowrap;
+}
+.ptl-nv-head.ptl-nv-open::after,
+.ptl-nv-body::before {
+  content: "";
+  position: absolute;
+  left: calc(var(--ptl-nv-col) / 2);
+  border-left: 2px solid var(--ptl-c, var(--text-muted));
+}
+.ptl-nv-head.ptl-nv-open::after { top: calc(100% - 0.4em); height: 1em; left: calc(var(--ptl-nv-col) / 2 - 1px); }
+.ptl-nv-body::before { top: 0; bottom: 0; left: calc(-1 * (var(--ptl-nv-gap) + var(--ptl-nv-col) / 2) - 1px); }
+.ptl-nv-body.ptl-nv-last::before { bottom: 0.4em; }
+.ptl-nv-body.ptl-nv-first::before { top: -0.6em; }
+/* the entry's content: one card, tinted like a period bar */
+.ptl-nv-body {
+  margin-left: calc(var(--ptl-nv-col) + var(--ptl-nv-gap));
+  padding: 0 1em;
+  background: var(--background-modifier-hover);
+}
+@supports (background: color-mix(in srgb, red 10%, transparent)) {
+  .ptl-nv-body { background: color-mix(in srgb, var(--ptl-c, var(--text-faint)) 7%, transparent); }
+}
+.ptl-nv-body.ptl-nv-first { border-top-left-radius: 8px; border-top-right-radius: 8px; padding-top: 0.3em; margin-top: 0.6em; }
+.ptl-nv-body.ptl-nv-last { border-bottom-left-radius: 8px; border-bottom-right-radius: 8px; padding-bottom: 0.3em; margin-bottom: 1.4em; }
+.is-phone .ptl-nv { --ptl-nv-col: 84px; --ptl-nv-gap: 10px; }
+.is-phone .ptl-nv-body { padding: 0 0.7em; }

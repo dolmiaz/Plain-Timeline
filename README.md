@@ -87,6 +87,12 @@ Clicking an item opens, in order: the link inside it, a note with the same name,
 
 The scale look picks calendar steps — days, weeks, months or years — to fit the width, keeps half a step of air at each end, and labels the year where it changes. Labels never overlap: when items are close together, the axis stretches a little there.
 
+## Note view
+
+A log written as headings can be read as a timeline too. List folders under **Settings → Note view** (for example `Projects/*/Worklog`; `*` is one folder name, `**` any depth). In reading view, notes inside them show every `##` heading that starts with a time — `## 2026-10-21 23:52 Kick-off`, `## 09:30 Stand-up`, or a time in parentheses such as `## Review (2026-10-22T00:23+09:00)` — with the time in a column on the left, the title beside it, and the section below as one card on a line. The date is shown where it changes. Headings without a time stay as they are. The note itself is not changed, and editing works as usual.
+
+A single note can opt in or out with `plain-timeline: notes` or `plain-timeline: off` in its properties. The heading level can be changed in the settings.
+
 ## Mobile
 
 On phones the vertical layouts become a single column. On phones and tablets the buttons and items are larger, and tapping an item on the horizontal axis shows its details under the timeline. Wide timelines fade at the edge while there is more to scroll.
