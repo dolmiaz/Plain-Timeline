@@ -85,13 +85,9 @@
 
 ![ライトテーマ](docs/images/light.jpg)
 
-## インストール
-
-コミュニティプラグインに載るまでは、最新のReleaseから `main.js`、`manifest.json`、`styles.css` を `<Vault>/.obsidian/plugins/plain-timeline/` に置き、設定 → コミュニティプラグインで **Plain Timeline** を有効にしてください。[BRAT](https://github.com/TfTHacker/obsidian42-brat) に `dolmiaz/Plain-Timeline` を指定してもインストールできます。
-
 ## クレジット
 
-行の書き方は [Chronos Timeline](https://github.com/clairefro/obsidian-plugin-chronos)(MIT)と互換なので、Chronos形式の行をそのまま `plain-timeline` ブロックに貼れます。そのプロジェクトのコードは使っていません。
+行の書き方は [Chronos Timeline](https://github.com/clairefro/obsidian-plugin-chronos)(MIT)と互換なので、Chronos形式の行をそのまま `plain-timeline` ブロックに貼れます。
 
 ## ライセンス
 

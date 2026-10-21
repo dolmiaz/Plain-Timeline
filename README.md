@@ -85,13 +85,9 @@ Language (English / 日本語 / follow Obsidian) · default orientation and look
 
 ![Light theme](docs/images/light.jpg)
 
-## Install
-
-Until it is listed in Community plugins: download `main.js`, `manifest.json` and `styles.css` from the latest release into `<vault>/.obsidian/plugins/plain-timeline/`, then enable **Plain Timeline** in Settings → Community plugins. You can also install it with [BRAT](https://github.com/TfTHacker/obsidian42-brat) using `dolmiaz/Plain-Timeline`.
-
 ## Credits
 
-The line syntax is compatible with [Chronos Timeline](https://github.com/clairefro/obsidian-plugin-chronos) (MIT), so existing Chronos-style lines can be pasted into a `plain-timeline` block. No code from that project is used.
+The line syntax is compatible with [Chronos Timeline](https://github.com/clairefro/obsidian-plugin-chronos) (MIT), so existing Chronos-style lines can be pasted into a `plain-timeline` block.
 
 ## License
 
