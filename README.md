@@ -37,6 +37,20 @@ Each timeline picks its own orientation and look. Use the small switch at the to
 | `= [date] Name` | A marker (a single date). |
 | `#red` right after the date | Color for that item: blue, green, purple, orange, cyan, pink, yellow, red, gray. Any other `#word` stays part of the name. |
 | `# text` | Comment, not shown. |
+| `- [2026-09-01, 2026-09-10] Name` | Several dates in one line make one item each, sharing the name and description (`,` `、` also work). |
+| Indented lines below an item | Continue its description. Full Markdown works there — several paragraphs (leave a blank line), lists, links. |
+
+A longer item looks like this:
+
+````markdown
+```plain-timeline
+- [2026-09-01, 2026-09-10~2026-09-12] Midterm exams | Chapters 1–3
+  Bring the textbook and the handouts.
+
+  - Practice set A
+  - Practice set B
+```
+````
 
 ### Options
 

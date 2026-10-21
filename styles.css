@@ -129,7 +129,7 @@
 .ptl-ch-card.ptl-linked:hover { background: var(--background-modifier-hover); }
 .ptl-ch-card.ptl-linked:hover .ptl-ch-title { color: var(--text-accent); }
 .ptl-desc-hover .ptl-ch-desc { display: none; }
-.ptl-desc-hover .ptl-ch-card:hover .ptl-ch-desc { display: block; }
+.ptl-desc-hover .ptl-ch-card:hover .ptl-ch-desc, .ptl-desc-hover .ptl-ch-card:focus-within .ptl-ch-desc { display: block; }
 
 /* ── Vertical scale ─────────────────────── */
 .ptl-scale-v { overflow-y: auto; }
@@ -216,3 +216,11 @@
 .ptl-detail-title { font-weight: 600; margin-top: 2px; }
 .ptl-detail-desc { color: var(--text-muted); font-size: .9em; margin-top: 2px; }
 .ptl-detail-open { margin-top: 8px; min-height: 36px; }
+
+/* ── Multi-line descriptions (paragraphs, lists) ── */
+.ptl-v-desc > :first-child, .ptl-ch-desc > :first-child, .ptl-sv-desc > :first-child, .ptl-h-legend-desc > :first-child, .ptl-detail-desc > :first-child { margin-top: 0; }
+.ptl-v-desc > :last-child, .ptl-ch-desc > :last-child, .ptl-sv-desc > :last-child, .ptl-h-legend-desc > :last-child, .ptl-detail-desc > :last-child { margin-bottom: 0; }
+.ptl-v-desc p, .ptl-ch-desc p, .ptl-sv-desc p, .ptl-h-legend-desc p, .ptl-detail-desc p { margin: .25em 0; }
+.ptl-v-desc ul, .ptl-v-desc ol, .ptl-ch-desc ul, .ptl-ch-desc ol, .ptl-sv-desc ul, .ptl-sv-desc ol,
+.ptl-h-legend-desc ul, .ptl-h-legend-desc ol, .ptl-detail-desc ul, .ptl-detail-desc ol { margin: .2em 0; padding-left: 1.3em; }
+.ptl-tip { white-space: pre-line; }

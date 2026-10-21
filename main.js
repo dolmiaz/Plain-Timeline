@@ -19,7 +19,7 @@
  * No code from that project is used.
  */
 const {
-  Plugin, PluginSettingTab, Setting, MarkdownRenderer, MarkdownRenderChild, moment, Platform,
+  Plugin, PluginSettingTab, Setting, MarkdownRenderer, MarkdownRenderChild, moment, Platform, debounce,
 } = require('obsidian');
 
 const BLOCK = 'plain-timeline';
@@ -233,11 +233,11 @@ function parseDate(text, opts = { order: 'ymd', pivot: 49 }) {
     y = neg ? parseInt(parts[0], 10) : expandYear(parts[0], pivot);
     mo = parseInt(parts[1], 10); d = parts[2] ? parseInt(parts[2], 10) : null;
   } else if (parts.length === 2) {           // month + year
-    mo = parseInt(parts[0], 10); y = expandYear(parts[1], pivot);
+    mo = parseInt(parts[0], 10); y = neg ? parseInt(parts[1], 10) : expandYear(parts[1], pivot);
   } else if (order === 'dmy') {
-    d = parseInt(parts[0], 10); mo = parseInt(parts[1], 10); y = expandYear(parts[2], pivot);
+    d = parseInt(parts[0], 10); mo = parseInt(parts[1], 10); y = neg ? parseInt(parts[2], 10) : expandYear(parts[2], pivot);
   } else {
-    mo = parseInt(parts[0], 10); d = parseInt(parts[1], 10); y = expandYear(parts[2], pivot);
+    mo = parseInt(parts[0], 10); d = parseInt(parts[1], 10); y = neg ? parseInt(parts[2], 10) : expandYear(parts[2], pivot);
   }
   if (neg) y = -y;
   if (!isFinite(y)) return null;
@@ -258,11 +258,11 @@ function splitNameDesc(rest) {
 }
 
 // full-width characters people type with a Japanese IME, normalised in the sigil/date part only
-const WIDE = { '［': '[', '］': ']', '～': '~', '〜': '~', '－': '-', '／': '/', '．': '.', '＠': '@', '＝': '=', '＊': '*', '＃': '#', '　': ' ' };
+const WIDE = { '，': ',', '［': '[', '］': ']', '～': '~', '〜': '~', '－': '-', '／': '/', '．': '.', '＠': '@', '＝': '=', '＊': '*', '＃': '#', '　': ' ' };
 function normalizeHead(line) {
   const close = line.search(/[\]］]/);
   if (close < 0) return line;
-  const head = line.slice(0, close + 1).replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)).replace(/[［］～〜－／．＠＝＊＃　]/g, c => WIDE[c]);
+  const head = line.slice(0, close + 1).replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)).replace(/[，［］～〜－／．＠＝＊＃　]/g, c => WIDE[c]);
   return head + line.slice(close + 1);
 }
 
@@ -295,10 +295,24 @@ function parseBlock(source, sortOrder, dateOpts) {
   const optionLine = {};
   const warnings = [];
   let optionLang = null;
+  // items made by the last item line; indented lines below it continue their description
+  let group = null;
+  let blank = false;
   source.split('\n').forEach((raw, index) => {
     const lineNo = index + 1;
     const line = normalizeHead(raw.trim());
-    if (!line || line.startsWith('#')) return;
+    if (!line) { if (group) blank = true; return; }
+    const isItem = /^[-@=*]\s*\[/.test(line);
+    if (group && !isItem && /^\s/.test(raw)) {
+      // an indented line continues the description (a blank line in between starts a new paragraph)
+      const text = raw.replace(/^(\t| {1,4})/, '');
+      for (const it of group) it.desc = it.desc ? `${it.desc}${blank ? '\n\n' : '\n'}${text}` : text;
+      blank = false;
+      return;
+    }
+    group = null;
+    blank = false;
+    if (line.startsWith('#')) return;
     if (line.startsWith('>')) {
       const [keyRaw, ...value] = line.slice(1).trim().split(/\s+/);
       const key = OPTION_ALIASES[keyRaw] || OPTION_ALIASES[keyRaw.toLowerCase()];
@@ -310,7 +324,7 @@ function parseBlock(source, sortOrder, dateOpts) {
     }
     const m = line.match(/^([-@=*])\s*\[([^\]]*)\]\s*(.*)$/);
     if (!m) { warnings.push({ lineNo, text: raw.trim(), why: 'syntax' }); return; }
-    const [, sigil, dates, restRaw] = m;
+    const [, sigil, datesAll, restRaw] = m;
     // "#color" right after the date picks a color; any other "#word" stays part of the name
     let color = null;
     let rest = restRaw;
@@ -321,25 +335,32 @@ function parseBlock(source, sortOrder, dateOpts) {
     }
     rest = rest.replace(/^\{[^}]*\}\s*/, '');
     const [name, desc] = splitNameDesc(rest);
-    const tilde = dates.indexOf('~');
-    const a = tilde >= 0 ? dates.slice(0, tilde) : dates;
-    let b = tilde >= 0 ? dates.slice(tilde + 1) : null;
     const kind = sigil === '@' ? 'period' : sigil === '=' ? 'marker' : 'event';
-    if (kind === 'marker' && b != null) { warnings.push({ lineNo, text: raw.trim(), why: 'marker' }); b = null; }
-    let start = parseDate(a, dateOpts);
-    let end = null;
-    let openEnd = false;
-    if (b != null) {
-      if (!b.trim()) { openEnd = true; end = today(); }
-      else end = parseDate(b, dateOpts);
+    // several dates in one line ([2026-09-01, 2026-09-10]) make one item each, sharing the text
+    group = [];
+    for (const dates of datesAll.split(/\s*[,，、]\s*/).filter(p => p.trim())) {
+      const tilde = dates.indexOf('~');
+      const a = tilde >= 0 ? dates.slice(0, tilde) : dates;
+      let b = tilde >= 0 ? dates.slice(tilde + 1) : null;
+      if (kind === 'marker' && b != null) { warnings.push({ lineNo, text: raw.trim(), why: 'marker' }); b = null; }
+      let start = parseDate(a, dateOpts);
+      let end = null;
+      let openEnd = false;
+      if (b != null) {
+        if (!b.trim()) { openEnd = true; end = today(); }
+        else end = parseDate(b, dateOpts);
+      }
+      if (!start || (b != null && !openEnd && !end)) { warnings.push({ lineNo, text: raw.trim(), why: 'date' }); continue; }
+      if (Math.abs(start.year) > MAX_YEAR || (end && Math.abs(end.year) > MAX_YEAR)) { warnings.push({ lineNo, text: raw.trim(), why: 'huge' }); continue; }
+      if (end && end.value < start.value) {
+        if (openEnd) end = start;
+        else { [start, end] = [end, start]; warnings.push({ lineNo, text: raw.trim(), why: 'order' }); }
+      }
+      const item = { kind, start, end, openEnd, name, desc, color, lineNo, text: raw.trim() };
+      items.push(item);
+      group.push(item);
     }
-    if (!start || (b != null && !openEnd && !end)) { warnings.push({ lineNo, text: raw.trim(), why: 'date' }); return; }
-    if (Math.abs(start.year) > MAX_YEAR || (end && Math.abs(end.year) > MAX_YEAR)) { warnings.push({ lineNo, text: raw.trim(), why: 'huge' }); return; }
-    if (end && end.value < start.value) {
-      if (openEnd) end = start;
-      else { [start, end] = [end, start]; warnings.push({ lineNo, text: raw.trim(), why: 'order' }); }
-    }
-    items.push({ kind, start, end, openEnd, name, desc, color, lineNo, text: raw.trim() });
+    if (!group.length) group = null;
   });
   if (sortOrder !== 'written') items.sort((x, y) => x.start.value - y.start.value);
 
@@ -363,6 +384,7 @@ function parseBlock(source, sortOrder, dateOpts) {
   for (const key of ['start', 'end']) {
     if (!(key in options)) continue;
     range[key] = parseDate(options[key], dateOpts);
+    if (range[key] && Math.abs(range[key].year) > MAX_YEAR) range[key] = null;
     if (!range[key]) bad(key);
   }
   if (range.start && range.end && range.end.value < range.start.value) [range.start, range.end] = [range.end, range.start];
@@ -575,6 +597,9 @@ function dataRange(data) {
   if (data.range.start) min = data.range.start.value;
   if (data.range.end) max = data.range.end.value;
   if (!isFinite(min) || !isFinite(max)) { min = 0; max = 1; }
+  // a fixed start/end can collapse or invert the range: keep it positive and in order
+  if (max < min) [min, max] = [max, min];
+  if (max - min < 1 / 365) { min -= 1 / 24; max += 1 / 24; }
   return { min, max };
 }
 
@@ -613,14 +638,17 @@ function attachTip(el, text, owner) {
   let tip = null;
   const show = () => {
     if (tip) return;
-    tip = document.body.createDiv({ cls: 'ptl-tip' });
+    // the item's own window, so popped-out notes get the tip in the right place
+    const doc = el.ownerDocument;
+    const win = doc.defaultView || window;
+    tip = doc.body.createDiv({ cls: 'ptl-tip' });
     tip.setText(text);
     const r = el.getBoundingClientRect();
     const tr = tip.getBoundingClientRect();
     let left = r.right + 8;
     let top = r.top + r.height / 2 - tr.height / 2;
-    if (left + tr.width > window.innerWidth - 8) left = r.left - tr.width - 8;
-    if (left < 8) { left = Math.min(Math.max(8, r.left), window.innerWidth - tr.width - 8); top = r.bottom + 6; }
+    if (left + tr.width > win.innerWidth - 8) left = r.left - tr.width - 8;
+    if (left < 8) { left = Math.min(Math.max(8, r.left), win.innerWidth - tr.width - 8); top = r.bottom + 6; }
     tip.style.left = `${left}px`;
     tip.style.top = `${Math.max(8, top)}px`;
   };
@@ -633,15 +661,22 @@ function attachTip(el, text, owner) {
 }
 
 // make an item clickable: first link in the item → note with the same name → mention in this note
-function attachLink(plugin, el, item, ctx, fmt, owner) {
+// URL schemes an item may open; anything else (javascript:, data:, file: …) is ignored
+const SAFE_SCHEMES = /^(https?|mailto|obsidian):/i;
+
+// descVisible: false when the description is only shown as plain text (tooltip), so its links
+// cannot be clicked — then a link in the description becomes the item's own target instead.
+function attachLink(plugin, el, item, ctx, fmt, owner, descVisible = true) {
   const s = plugin.settings;
   if (!s.linkItems) return null;
   const app = plugin.app;
+  const LINK = /\[\[([^\]|]+)(?:\|[^\]]*)?\]\]|\[[^\]]*\]\(([^)\s]+)\)/;
+  const visibleLinks = LINK.test(item.name) || (descVisible && LINK.test(item.desc));
   const text = `${item.name} ${item.desc}`;
   const m = text.match(/\[\[([^\]|]+)(?:\|[^\]]*)?\]\]|\[[^\]]*\]\(([^)\s]+)\)/);
   const name = plainText(item.name).replace(/[(（].*$/, '').trim();
   let target = null;
-  if (m && !s.frameLinkWithInnerLinks) {
+  if (visibleLinks && !s.frameLinkWithInnerLinks) {
     el.addClass('ptl-has-links');
     return null;
   }
@@ -649,7 +684,8 @@ function attachLink(plugin, el, item, ctx, fmt, owner) {
   else if (m && m[2]) {
     let dest = m[2];
     try { dest = decodeURI(dest); } catch (e) { /* keep as written */ }
-    target = /^[a-z][\w+.-]*:/i.test(dest) ? { url: dest } : { link: dest.replace(/\.md(?=#|$)/, '') };
+    if (/^[a-z][\w+.-]*:/i.test(dest)) target = SAFE_SCHEMES.test(dest) ? { url: dest } : null;
+    else target = { link: dest.replace(/\.md(?=#|$)/, '') };
   } else if (name && app.metadataCache.getFirstLinkpathDest(name, ctx.sourcePath)) target = { link: name };
   else if (name && s.searchInNote) target = { search: name };
   if (!target) return null;
@@ -688,6 +724,7 @@ function attachLink(plugin, el, item, ctx, fmt, owner) {
     });
   }
   el.addEventListener('keydown', evt => {
+    if (evt.target !== el) return; // an inner link handles its own keys
     if (evt.key === 'Enter' || evt.key === ' ') { evt.preventDefault(); go(evt.metaKey || evt.ctrlKey); }
   });
   // Obsidian's page preview on hover (Ctrl/⌘ + hover, depending on the user's settings)
@@ -714,7 +751,7 @@ function colorFor(plugin, item, index) {
 // fade the edge of a horizontally scrolling area while there is more to see
 function addScrollFade(scroller, owner) {
   // a wrapper carries the edge shading, so nothing depends on CSS masks
-  const wrap = document.createElement('div');
+  const wrap = scroller.ownerDocument.createElement('div');
   wrap.className = 'ptl-fade-wrap';
   scroller.parentElement.insertBefore(wrap, scroller);
   wrap.appendChild(scroller);
@@ -725,7 +762,12 @@ function addScrollFade(scroller, owner) {
   };
   scroller.addEventListener('scroll', update, { passive: true });
   observe(scroller, update, owner);
-  requestAnimationFrame(update);
+  later(owner, update);
+}
+
+// run fn on the next frame unless the timeline has been unloaded meanwhile
+function later(owner, fn) {
+  requestAnimationFrame(() => { if (!owner.ptlGone) fn(); });
 }
 
 // run fn now (after layout) and whenever el changes size, until the owner is unloaded
@@ -801,7 +843,7 @@ function renderCardsVertical(plugin, root, data, ctx, owner, fmt, pending) {
     }
     gutter.style.width = `${laneEnds.length * 7}px`;
   };
-  Promise.all(pending).then(() => requestAnimationFrame(drawBands));
+  Promise.all(pending).then(() => later(owner, drawBands));
   observe(list, drawBands, owner);
   return wrap;
 }
@@ -835,7 +877,7 @@ function renderScaleHorizontal(plugin, root, data, ctx, owner, fmt, pending) {
     if (item.openEnd) el.addClass('is-open');
     pending.push(renderInline(plugin, el.createDiv({ cls: 'ptl-h-label' }), `${fmt.range(item)}  ${item.name}`, ctx.sourcePath, owner));
     if (touch) el.addClass('ptl-tap-detail');
-    const go = attachLink(plugin, el, item, ctx, fmt, owner);
+    const go = attachLink(plugin, el, item, ctx, fmt, owner, showDesc || touch);
     // descriptions: a floating note on hover (pointer), or the detail panel on tap (touch)
     if (item.desc) {
       el.addClass('has-desc');
@@ -852,7 +894,11 @@ function renderScaleHorizontal(plugin, root, data, ctx, owner, fmt, pending) {
   // with "always show", list the descriptions under the axis, each tied to its item by a dot
   if (showDesc && items.some(it => it.desc)) {
     const legend = root.createDiv({ cls: 'ptl-h-legend' });
+    const listed = new Set(); // one line with several dates is listed once
     for (const p of placed.filter(q => q.item.desc)) {
+      const key = `${p.item.lineNo}\u0000${p.item.name}`;
+      if (listed.has(key)) continue;
+      listed.add(key);
       const row = legend.createDiv({ cls: 'ptl-h-legend-row' });
       const name = row.createSpan({ cls: 'ptl-h-legend-name' });
       const dot = name.createSpan({ cls: 'ptl-h-legend-dot' + (p.isSpan ? ' is-span' : '') });
@@ -929,7 +975,7 @@ function renderScaleHorizontal(plugin, root, data, ctx, owner, fmt, pending) {
       tick.setText(labels[i]);
     });
   };
-  Promise.all(pending).then(() => requestAnimationFrame(layout));
+  Promise.all(pending).then(() => later(owner, layout));
   observe(outer, layout, owner);
   addScrollFade(outer, owner);
   return outer;
@@ -976,7 +1022,7 @@ function renderScaleVertical(plugin, root, data, ctx, owner, fmt, pending) {
   if (!items.length) return null;
   const raw = dataRange(data);
   const fixed = !!(data.range.start || data.range.end);
-  const showDesc = plugin.settings.descriptions !== 'hover';
+  const showDesc = plugin.settings.descriptions !== 'hover' || isTouch(); // no hover on touch devices
 
   const outer = root.createDiv({ cls: 'ptl ptl-scale-v' });
   const canvas = outer.createDiv({ cls: 'ptl-sv-canvas' });
@@ -1007,7 +1053,7 @@ function renderScaleVertical(plugin, root, data, ctx, owner, fmt, pending) {
       if (showDesc) pending.push(renderInline(plugin, label.createDiv({ cls: 'ptl-sv-desc' }), item.desc, ctx.sourcePath, owner));
       else attachTip(label, plainText(item.desc), owner);
     }
-    attachLink(plugin, label, item, ctx, fmt, owner);
+    attachLink(plugin, label, item, ctx, fmt, owner, showDesc);
     return label;
   });
 
@@ -1090,7 +1136,7 @@ function renderScaleVertical(plugin, root, data, ctx, owner, fmt, pending) {
     }
     cols.style.width = `${Math.max(colEnds.length * 12, 4)}px`;
   };
-  Promise.all(pending).then(() => requestAnimationFrame(() => { lastWidth = -1; layout(); }));
+  Promise.all(pending).then(() => later(owner, () => { lastWidth = -1; layout(); }));
   observe(labelsEl, layout, owner);
   return outer;
 }
@@ -1138,6 +1184,8 @@ class TimelineRender extends MarkdownRenderChild {}
 class PlainTimelinePlugin extends Plugin {
   async onload() {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    this.rendered = new Set(); // timelines on screen, re-rendered when settings change
+    this.saveSettingsSoon = debounce(() => this.saveSettings(), 400, true);
     this.registerMarkdownCodeBlockProcessor(BLOCK, (source, el, ctx) => this.render(source, el, ctx));
     this.addSettingTab(new PlainTimelineSettingTab(this.app, this));
   }
@@ -1149,6 +1197,10 @@ class PlainTimelinePlugin extends Plugin {
     const owner = new TimelineRender(el);
     el.ptlOwner = owner;
     ctx.addChild(owner);
+    const entry = { source, el, ctx };
+    if (!this.rendered) this.rendered = new Set();
+    this.rendered.add(entry);
+    owner.register(() => { owner.ptlGone = true; this.rendered.delete(entry); });
     const base = this.settings;
     const fmt = new Formatter(base);
     const data = parseBlock(source, base.sortOrder, { order: base.inputOrder, pivot: base.twoDigitPivot });
@@ -1189,7 +1241,7 @@ class PlainTimelinePlugin extends Plugin {
               const next = key === 'orientation'
                 ? { orientation: value, look: data.look ? look : defaultLookFor(value) }
                 : { orientation, look: value };
-              const saved = await this.setFlags(el, ctx, next, data.optionLang || fmt.lang);
+              const saved = await this.setFlags(el, ctx, source, next, data.optionLang || fmt.lang);
               if (!saved) this.render(source, el, ctx, next);
             };
           }
@@ -1212,8 +1264,10 @@ class PlainTimelinePlugin extends Plugin {
 
   // rewrite the orientation / look lines of this block and save the note; false if not possible.
   // Lines are written only when they differ from the defaults, in the language the block's own
-  // options use, right after the block's other leading option lines.
-  async setFlags(el, ctx, next, lang) {
+  // options use, right after the block's other leading option lines. Nothing is written unless the
+  // file still holds exactly this block at the expected lines as a top-level fence (not inside a
+  // quote or list) — otherwise the caller switches the view in place without saving.
+  async setFlags(el, ctx, source, next, lang) {
     const info = ctx.getSectionInfo && ctx.getSectionInfo(el);
     const file = this.app.vault.getAbstractFileByPath(ctx.sourcePath);
     if (!info || !file) return false;
@@ -1226,9 +1280,17 @@ class PlainTimelinePlugin extends Plugin {
     if (next.look !== defaultLookFor(next.orientation)) {
       add.push(lang === 'ja' ? `> 見た目 ${next.look === 'scale' ? '時間軸' : 'カード'}` : `> look ${next.look}`);
     }
+    let written = false;
     await this.app.vault.process(file, text => {
       const lines = text.split('\n');
-      const body = lines.slice(info.lineStart + 1, info.lineEnd).filter(line => {
+      const open = lines[info.lineStart] || '';
+      const close = lines[info.lineEnd] || '';
+      const inner = lines.slice(info.lineStart + 1, info.lineEnd);
+      const same = /^(`{3,}|~{3,})\s*plain-timeline\s*$/.test(open.replace(/\r$/, ''))
+        && /^(`{3,}|~{3,})\s*$/.test(close.replace(/\r$/, ''))
+        && inner.join('\n').replace(/\r/g, '').trim() === source.replace(/\r/g, '').trim();
+      if (!same) return text;
+      const body = inner.filter(line => {
         const m = line.match(OPTION_LINE);
         return !(m && (FLAG_KEYS.has(m[1]) || FLAG_KEYS.has(m[1].toLowerCase())));
       });
@@ -1236,20 +1298,19 @@ class PlainTimelinePlugin extends Plugin {
       while (at < body.length && /^\s*(>|#|$)/.test(body[at])) at++;
       body.splice(at, 0, ...add);
       lines.splice(info.lineStart + 1, info.lineEnd - info.lineStart - 1, ...body);
+      written = true;
       return lines.join('\n');
     });
-    return true;
+    return written;
   }
 
   async saveSettings() {
     await this.saveData(this.settings);
-    // re-render open notes (reading view and Live Preview) so changes show immediately
-    this.app.workspace.iterateAllLeaves(leaf => {
-      const view = leaf.view;
-      if (!view || view.getViewType() !== 'markdown') return;
-      if (view.previewMode && typeof view.previewMode.rerender === 'function') view.previewMode.rerender(true);
-      if (typeof leaf.rebuildView === 'function' && view.getMode && view.getMode() === 'source') leaf.rebuildView();
-    });
+    // re-render the timelines on screen (reading view, Live Preview, embeds) with the new settings
+    for (const entry of [...this.rendered]) {
+      if (entry.el.isConnected) this.render(entry.source, entry.el, entry.ctx);
+      else this.rendered.delete(entry);
+    }
   }
 }
 
@@ -1290,12 +1351,12 @@ class PlainTimelineSettingTab extends PluginSettingTab {
     new Setting(containerEl).setName(t.pivot[0]).setDesc(t.pivot[1])
       .addText(tx => tx.setValue(String(s.twoDigitPivot)).onChange(async v => {
         const n = parseInt(v, 10);
-        if (n >= 0 && n <= 99) { s.twoDigitPivot = n; await p.saveSettings(); }
+        if (n >= 0 && n <= 99) { s.twoDigitPivot = n; p.saveSettingsSoon(); }
       }));
     dropdown('dateFormat', t.dateFormat, [['localized', t.dfLocalized], ['iso', t.dfIso], ['custom', t.dfCustom]], () => this.display());
     if (s.dateFormat === 'custom') {
       new Setting(containerEl).setName(t.customFormat[0]).setDesc(t.customFormat[1])
-        .addText(tx => tx.setValue(s.customDateFormat).onChange(async v => { s.customDateFormat = v; await p.saveSettings(); }));
+        .addText(tx => tx.setValue(s.customDateFormat).onChange(v => { s.customDateFormat = v; p.saveSettingsSoon(); }));
     }
     dropdown('bceStyle', t.bce, [['auto', t.bceAuto], ['bce', t.bceBce], ['bc', t.bceBc], ['minus', t.bceMinus], ['ja', t.bceJa]]);
     dropdown('descriptions', t.desc, [['show', t.descShow], ['hover', t.descHover]]);
@@ -1304,14 +1365,14 @@ class PlainTimelineSettingTab extends PluginSettingTab {
     toggle('showSwitch', t.switch);
     dropdown('colorMode', t.color, [['theme', t.colorTheme], ['mono', t.colorMono]]);
     new Setting(containerEl).setName(t.colorOrder[0]).setDesc(t.colorOrder[1])
-      .addText(tx => tx.setValue(s.colorOrder).onChange(async v => { s.colorOrder = v; await p.saveSettings(); }));
+      .addText(tx => tx.setValue(s.colorOrder).onChange(v => { s.colorOrder = v; p.saveSettingsSoon(); }));
     toggle('frameLinkWithInnerLinks', t.frame);
     dropdown('density', t.density, [['comfortable', t.dComfortable], ['compact', t.dCompact]]);
     dropdown('sortOrder', t.sort, [['chronological', t.sortChrono], ['written', t.sortWritten]]);
     new Setting(containerEl).setName(t.minWidth[0]).setDesc(t.minWidth[1])
       .addText(tx => tx.setValue(String(s.horizontalMinWidth)).onChange(async v => {
         const n = parseInt(v, 10);
-        if (n > 0) { s.horizontalMinWidth = n; await p.saveSettings(); }
+        if (n > 0) { s.horizontalMinWidth = n; p.saveSettingsSoon(); }
       }));
     toggle('showWarnings', t.warnings);
   }
