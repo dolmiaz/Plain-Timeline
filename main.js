@@ -57,8 +57,12 @@ const STRINGS = {
     open: t => `Open ${t}`, jump: 'Jump to where this appears in the note', go: 'Open', close: 'Close',
     present: 'present', today: 'Today',
     months: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-    skipped: n => `${n} line${n > 1 ? 's' : ''} could not be read`,
-    why: { date: 'unreadable date', syntax: 'not a timeline line', color: 'unknown color (ignored)', order: 'end is before start (swapped)', option: 'unreadable option' },
+    warnTitle: n => `${n} note${n > 1 ? 's' : ''} about this timeline`,
+    why: {
+      date: 'unreadable date', syntax: 'not a timeline line', order: 'end is before start (swapped)',
+      option: 'unknown option', value: 'unreadable option value', range: 'outside the start/end range (shown at the edge)',
+      marker: 'a marker takes a single date (end ignored)', huge: 'year too far from today to draw',
+    },
     lineNo: n => `line ${n}`,
     s: {
       language: ['Language', 'Language of the plugin interface and date labels.'],
@@ -66,12 +70,12 @@ const STRINGS = {
       orientation: ['Default orientation', 'Used when a block has no orientation line. Each block can override it with the switch or "> orientation horizontal".'],
       look: ['Default look', 'Cards space items evenly and suit events; Scale draws lengths in proportion to time and suits periods. "Auto" uses cards when vertical and scale when horizontal. Each block can override it with "> look cards" or "> look scale".'],
       lookAuto: 'Auto',
-      inputOrder: ['Date order in blocks', 'How you write dates inside timeline blocks. Separators "-", "/", "." or none are all accepted (e.g. 2026-10-21, 2026/10/21, 20261021, 202610; or 21/10/2026, 21102026, 211026 in day-first order).'],
+      inputOrder: ['Date order in blocks', 'How you write dates inside timeline blocks. Separators "-", "/", "." or none are all accepted (e.g. 2026-10-21, 2026/10/21, 20261021, 202610; or 21/10/2026, 21102026, 211026 in day-first order). Write years 1–99 with four digits (0079-08-24).'],
       orderYmd: 'Year–month–day (YYYY-MM-DD, YYYYMMDD, YYYYMM)', orderDmy: 'Day–month–year (DD/MM/YYYY, DDMMYYYY, DDMMYY)', orderMdy: 'Month–day–year (MM/DD/YYYY, MMDDYYYY, MMDDYY)',
-      pivot: ['Two-digit years', 'Two-digit years up to this number are read as 20xx, the rest as 19xx.'],
+      pivot: ['Two-digit years', 'Two-digit years next to a month (19-03-04, 04/03/19) up to this number are read as 20xx, the rest as 19xx.'],
       dateFormat: ['Date format', 'How dates are written next to each item.'],
       dfCustom: 'Custom pattern',
-      customFormat: ['Custom pattern', 'Tokens: YYYY, YY, MMM, MM, M, DD, D. Parts a date does not have are left out.'],
+      customFormat: ['Custom pattern', 'Tokens: YYYY, YY, MMM, MM, M, DD, D. Parts a date does not have are left out together with the separator next to them.'],
       dfLocalized: 'Localized (Jul 14, 1789 / 1789年7月14日)', dfIso: 'ISO (1789-07-14)',
       bce: ['Years before the common era', 'How negative years are labelled.'],
       bceAuto: 'Match language', bceBce: '490 BCE', bceBc: '490 BC', bceMinus: '-490', bceJa: '前490年',
@@ -79,7 +83,7 @@ const STRINGS = {
       descShow: 'Always show', descHover: 'Show on hover only',
       link: ['Clickable items', 'Clicking an item opens its first link, a note with the same name, or the place in this note where it is mentioned.'],
       search: ['Fall back to this note', 'If an item has no link and no matching note, jump to the first mention of its name in the current note.'],
-      switch: ['Orientation switch', 'Show the Vertical / Horizontal and Cards / Scale buttons on each timeline.'],
+      switch: ['Layout switch', 'Show the Vertical / Horizontal and Cards / Scale buttons on each timeline.'],
       color: ['Period colors', 'Colors used for periods (items with a date range).'],
       colorOrder: ['Color order', 'Comma-separated order in which periods get colors. Available: blue, green, purple, orange, cyan, pink, yellow, red, gray. A single item can pick its own color with "#red" right after the date.'],
       frame: ['Whole item clickable when it has links', 'Off: if an item contains links, only those links are clickable. On: the item itself also opens its first link.'],
@@ -87,7 +91,7 @@ const STRINGS = {
       density: ['Density', 'Spacing between items. Can be overridden per block with "> density compact".'], dComfortable: 'Comfortable', dCompact: 'Compact',
       sort: ['Order', 'Order of items in a timeline.'], sortChrono: 'Chronological', sortWritten: 'As written',
       minWidth: ['Horizontal minimum width', 'Minimum width (px) of the horizontal axis before it scrolls.'],
-      warnings: ['Show warnings', 'List lines that could not be read under the timeline.'],
+      warnings: ['Show notes about unreadable lines', 'List lines that could not be read (or were adjusted) under the timeline.'],
     },
   },
   ja: {
@@ -97,8 +101,12 @@ const STRINGS = {
     open: t => `${t} を開く`, jump: 'このノート内の記述へ移動', go: '開く', close: '閉じる',
     present: '現在', today: '今日',
     months: null,
-    skipped: n => `読めない行が${n}行あります`,
-    why: { date: '日付が読めない', syntax: '年表の行の形ではない', color: '知らない色(無視)', order: '終わりが始まりより前(入れ替え)', option: '指定が読めない' },
+    warnTitle: n => `この年表について${n}件のお知らせ`,
+    why: {
+      date: '日付が読めない', syntax: '年表の行の形ではない', order: '終わりが始まりより前(入れ替えた)',
+      option: '知らない指定', value: '指定の値が読めない', range: '開始・終了の範囲外(端に表示)',
+      marker: '目印は1つの日付だけ(終わりは無視)', huge: '年が大きすぎて描けない',
+    },
     lineNo: n => `${n}行目`,
     s: {
       language: ['言語', 'プラグインの表示と日付の言語。'],
@@ -106,12 +114,12 @@ const STRINGS = {
       orientation: ['既定の向き', '向きの行がないブロックに使う。各ブロックは切り替えボタンか「> 向き 横」で個別に変えられる。'],
       look: ['既定の見た目', 'カードは項目を等間隔に並べ、出来事向き。時間軸は長さを時間に比例させ、期間向き。「自動」は縦ならカード、横なら時間軸。各ブロックは「> 見た目 カード」「> 見た目 時間軸」で個別に変えられる。'],
       lookAuto: '自動',
-      inputOrder: ['ブロック内の日付の順番', '年表ブロックに書く日付の並び。区切りは「-」「/」「.」なしのどれでもよい(例: 2026-10-21、2026/10/21、20261021、202610。日-月-年の順なら 21/10/2026、21102026、211026)。'],
+      inputOrder: ['ブロック内の日付の順番', '年表ブロックに書く日付の並び。区切りは「-」「/」「.」なしのどれでもよい(例: 2026-10-21、2026/10/21、20261021、202610。日-月-年の順なら 21/10/2026、21102026、211026)。全角の数字や「～」も使える。紀元1〜99年は4桁で書く(0079-08-24)。'],
       orderYmd: '年-月-日(YYYY-MM-DD・YYYYMMDD・YYYYMM)', orderDmy: '日-月-年(DD/MM/YYYY・DDMMYYYY・DDMMYY)', orderMdy: '月-日-年(MM/DD/YYYY・MMDDYYYY・MMDDYY)',
-      pivot: ['2桁の年', 'この数以下の2桁の年は20xx年、それより大きければ19xx年として読む。'],
+      pivot: ['2桁の年', '月日と一緒に書いた2桁の年(19-03-04、04/03/19)は、この数以下なら20xx年、それより大きければ19xx年として読む。'],
       dateFormat: ['日付の書き方', '各項目の横に出す日付の形式。'],
       dfCustom: '自分で指定',
-      customFormat: ['日付の書式', '使える記号: YYYY, YY, MMM, MM, M, DD, D。日付にない部分は省く。'],
+      customFormat: ['日付の書式', '使える記号: YYYY, YY, MMM, MM, M, DD, D。日付にない部分は、となりの区切りごと省く。'],
       dfLocalized: '言語に合わせる(1789年7月14日 / Jul 14, 1789)', dfIso: 'ISO(1789-07-14)',
       bce: ['紀元前の表記', '負の年の書き方。'],
       bceAuto: '言語に合わせる', bceBce: '490 BCE', bceBc: '490 BC', bceMinus: '-490', bceJa: '前490年',
@@ -127,7 +135,7 @@ const STRINGS = {
       density: ['間隔', '項目同士の間隔。ブロックごとに「> 間隔 詰める」で変えられる。'], dComfortable: 'ゆったり', dCompact: '詰める',
       sort: ['並び順', '年表の中の並び。'], sortChrono: '日付順', sortWritten: '書いた順',
       minWidth: ['横の最小幅', '横の時間軸がスクロールに切り替わる最小の幅(px)。'],
-      warnings: ['警告を表示', '読めなかった行を年表の下に出す。'],
+      warnings: ['読めない行のお知らせを表示', '読めなかった行や調整した行を年表の下に出す。'],
     },
   },
 };
@@ -141,26 +149,33 @@ function resolveLang(setting) {
 const isPhone = () => (Platform.isPhone != null ? !!Platform.isPhone : (Platform.isMobile && window.innerWidth < 600));
 const isTouch = () => !!Platform.isMobile;
 
-/* ── calendar ─────────────────────────────────────── */
+/* ── calendar (pure arithmetic, proleptic Gregorian, any integer year) ── */
 
-// milliseconds at the start of a calendar day, valid for any year (including negative ones)
-function utc(y, m, d) {
-  if (m > 12) { y += Math.floor((m - 1) / 12); m = ((m - 1) % 12) + 1; }
-  const t = new Date(Date.UTC(2000, m - 1, 1));
-  t.setUTCFullYear(y);
-  return t.getTime() + (d - 1) * 864e5;
+const isLeap = y => (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+const daysInYear = y => (isLeap(y) ? 366 : 365);
+const MONTH_DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+const daysInMonth = (y, m) => (m === 2 && isLeap(y) ? 29 : MONTH_DAYS[m - 1]);
+function dayOfYear(y, m, d) {
+  let n = d - 1;
+  for (let i = 1; i < m; i++) n += daysInMonth(y, i);
+  return n;
 }
-const daysInMonth = (y, m) => Math.round((utc(y, m + 1, 1) - utc(y, m, 1)) / 864e5);
 // a date as a fractional year, measured in real days
 function toValue(y, m, d) {
-  const start = utc(y, 1, 1);
-  return y + (utc(y, m || 1, d || 1) - start) / (utc(y + 1, 1, 1) - start);
+  return y + dayOfYear(y, m || 1, d || 1) / daysInYear(y);
 }
 function fromValue(v) {
   const y = Math.floor(v);
-  const start = utc(y, 1, 1);
-  const t = new Date(start + (v - y) * (utc(y + 1, 1, 1) - start) + 1000);
-  return { year: y, month: t.getUTCMonth() + 1, day: t.getUTCDate() };
+  let n = Math.min(Math.round((v - y) * daysInYear(y)), daysInYear(y) - 1);
+  let m = 1;
+  while (n >= daysInMonth(y, m)) { n -= daysInMonth(y, m); m++; }
+  return { year: y, month: m, day: n + 1 };
+}
+function addDays(date, n) {
+  let { year: y, month: m, day: d } = date;
+  d += n;
+  while (d > daysInMonth(y, m)) { d -= daysInMonth(y, m); m++; if (m > 12) { m = 1; y++; } }
+  return { year: y, month: m, day: d };
 }
 function makeDate(year, month, day) {
   return { year, month, day, value: toValue(year, month, day) };
@@ -169,6 +184,8 @@ function today() {
   const n = new Date();
   return makeDate(n.getFullYear(), n.getMonth() + 1, n.getDate());
 }
+// the largest |year| we draw (values stay exact far beyond this, but labels become meaningless)
+const MAX_YEAR = 1e12;
 
 /* ── parsing ─────────────────────────────────────── */
 
@@ -176,8 +193,9 @@ function today() {
 // "-", "/", "." or none. Without separators the number of digits decides the shape:
 //   YMD: YYYY, YYYYMM, YYYYMMDD     DMY: YYYY, DDMMYY, DDMMYYYY     MDY: YYYY, MMDDYY, MMDDYYYY
 // (month + year in day-first or month-first order needs a separator: 10/2026)
-// A leading "-" marks a year before the common era. Two-digit years next to a month
-// (19-03-04, 04/03/19) follow the two-digit-year setting; a bare number is always a literal year.
+// A leading "-" marks a year before the common era; without separators it is always a bare year
+// (-66000000). Two-digit years next to a month follow the two-digit-year setting; write years
+// 1–99 with four digits (0079-08-24). A bare number is always a literal year.
 function expandYear(text, pivot) {
   if (text.length !== 2) return parseInt(text, 10);
   const n = parseInt(text, 10);
@@ -199,15 +217,14 @@ function parseDate(text, opts = { order: 'ymd', pivot: 49 }) {
     if (parts.some(p => !/^\d+$/.test(p)) || parts.length > 3) return null;
   } else if (/^\d+$/.test(body)) {
     const n = body.length;
-    if (n <= 4) parts = [body];
+    if (n <= 4 || neg) parts = [body];
     else if (order === 'ymd') {
       if (n === 6) parts = [body.slice(0, 4), body.slice(4)];
       else if (n === 8) parts = [body.slice(0, 4), body.slice(4, 6), body.slice(6)];
-      else if (n === 5 || n > 8) parts = [body];
-      else return null;
+      else parts = [body];
     } else {
       if (n === 6 || n === 8) parts = [body.slice(0, 2), body.slice(2, 4), body.slice(4)];
-      else return null;
+      else parts = [body];
     }
   } else return null;
 
@@ -223,6 +240,7 @@ function parseDate(text, opts = { order: 'ymd', pivot: 49 }) {
     mo = parseInt(parts[0], 10); d = parseInt(parts[1], 10); y = expandYear(parts[2], pivot);
   }
   if (neg) y = -y;
+  if (!isFinite(y)) return null;
   if (mo != null && (mo < 1 || mo > 12)) return null;
   if (d != null && (d < 1 || d > daysInMonth(y, mo))) return null;
   return makeDate(y, mo, d);
@@ -239,7 +257,17 @@ function splitNameDesc(rest) {
   return [rest.trim(), ''];
 }
 
-const FLAG_LINE = /^\s*>\s*(orientation|向き|look|見た目|style)(\s|$)/i;
+// full-width characters people type with a Japanese IME, normalised in the sigil/date part only
+const WIDE = { '［': '[', '］': ']', '～': '~', '〜': '~', '－': '-', '／': '/', '．': '.', '＠': '@', '＝': '=', '＊': '*', '＃': '#', '　': ' ' };
+function normalizeHead(line) {
+  const close = line.search(/[\]］]/);
+  if (close < 0) return line;
+  const head = line.slice(0, close + 1).replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)).replace(/[［］～〜－／．＠＝＊＃　]/g, c => WIDE[c]);
+  return head + line.slice(close + 1);
+}
+
+const OPTION_LINE = /^\s*>\s*(\S+)/;
+const FLAG_KEYS = new Set(['orientation', '向き', 'look', '見た目', 'style']);
 const OPTION_ALIASES = {
   orientation: 'orientation', 向き: 'orientation',
   look: 'look', 見た目: 'look',
@@ -253,37 +281,51 @@ const OPTION_ALIASES = {
   height: 'height', 高さ: 'height',
   orderby: 'orderby',
 };
+const JA_KEYS = new Set(['向き', '見た目', 'タイトル', '開始', '終了', '今日', '間隔', '説明', '高さ']);
+
+function pick(value, table) {
+  const v = (value || '').trim().toLowerCase();
+  for (const [result, words] of Object.entries(table)) if (words.includes(v)) return result;
+  return null;
+}
 
 function parseBlock(source, sortOrder, dateOpts) {
   const items = [];
   const options = {};
+  const optionLine = {};
   const warnings = [];
+  let optionLang = null;
   source.split('\n').forEach((raw, index) => {
-    const line = raw.trim();
     const lineNo = index + 1;
+    const line = normalizeHead(raw.trim());
     if (!line || line.startsWith('#')) return;
     if (line.startsWith('>')) {
       const [keyRaw, ...value] = line.slice(1).trim().split(/\s+/);
       const key = OPTION_ALIASES[keyRaw] || OPTION_ALIASES[keyRaw.toLowerCase()];
-      if (!key) { warnings.push({ lineNo, text: line, why: 'option' }); return; }
+      if (!key) { warnings.push({ lineNo, text: raw.trim(), why: 'option' }); return; }
+      if (!optionLang && key !== 'style') optionLang = JA_KEYS.has(keyRaw) ? 'ja' : 'en';
       options[key] = value.join(' ').trim();
+      optionLine[key] = { lineNo, text: raw.trim() };
       return;
     }
     const m = line.match(/^([-@=*])\s*\[([^\]]*)\]\s*(.*)$/);
-    if (!m) { warnings.push({ lineNo, text: line, why: 'syntax' }); return; }
+    if (!m) { warnings.push({ lineNo, text: raw.trim(), why: 'syntax' }); return; }
     const [, sigil, dates, restRaw] = m;
+    // "#color" right after the date picks a color; any other "#word" stays part of the name
     let color = null;
-    const colorMatch = restRaw.match(/^#(\w+)\s*/);
-    if (colorMatch) {
-      const c = colorMatch[1].toLowerCase();
-      if (COLORS.includes(c)) color = c;
-      else warnings.push({ lineNo, text: line, why: 'color' });
+    let rest = restRaw;
+    const colorMatch = restRaw.match(/^#(\w+)\s+/);
+    if (colorMatch && COLORS.includes(colorMatch[1].toLowerCase())) {
+      color = colorMatch[1].toLowerCase();
+      rest = restRaw.slice(colorMatch[0].length);
     }
-    const rest = restRaw.replace(/^#\w+\s*/, '').replace(/^\{[^}]*\}\s*/, '');
+    rest = rest.replace(/^\{[^}]*\}\s*/, '');
     const [name, desc] = splitNameDesc(rest);
     const tilde = dates.indexOf('~');
     const a = tilde >= 0 ? dates.slice(0, tilde) : dates;
-    const b = tilde >= 0 ? dates.slice(tilde + 1) : null;
+    let b = tilde >= 0 ? dates.slice(tilde + 1) : null;
+    const kind = sigil === '@' ? 'period' : sigil === '=' ? 'marker' : 'event';
+    if (kind === 'marker' && b != null) { warnings.push({ lineNo, text: raw.trim(), why: 'marker' }); b = null; }
     let start = parseDate(a, dateOpts);
     let end = null;
     let openEnd = false;
@@ -291,38 +333,63 @@ function parseBlock(source, sortOrder, dateOpts) {
       if (!b.trim()) { openEnd = true; end = today(); }
       else end = parseDate(b, dateOpts);
     }
-    if (!start || (b != null && !openEnd && !end)) { warnings.push({ lineNo, text: line, why: 'date' }); return; }
+    if (!start || (b != null && !openEnd && !end)) { warnings.push({ lineNo, text: raw.trim(), why: 'date' }); return; }
+    if (Math.abs(start.year) > MAX_YEAR || (end && Math.abs(end.year) > MAX_YEAR)) { warnings.push({ lineNo, text: raw.trim(), why: 'huge' }); return; }
     if (end && end.value < start.value) {
       if (openEnd) end = start;
-      else { [start, end] = [end, start]; warnings.push({ lineNo, text: line, why: 'order' }); }
+      else { [start, end] = [end, start]; warnings.push({ lineNo, text: raw.trim(), why: 'order' }); }
     }
-    items.push({ kind: sigil === '@' ? 'period' : sigil === '=' ? 'marker' : 'event', start, end, openEnd, name, desc, color, lineNo });
+    items.push({ kind, start, end, openEnd, name, desc, color, lineNo, text: raw.trim() });
   });
   if (sortOrder !== 'written') items.sort((x, y) => x.start.value - y.start.value);
 
-  const pick = (value, table) => {
-    const v = (value || '').toLowerCase();
-    for (const [result, words] of Object.entries(table)) if (words.includes(v)) return result;
-    return null;
+  // option values: anything unreadable is reported instead of silently ignored
+  const bad = key => warnings.push({ lineNo: optionLine[key].lineNo, text: optionLine[key].text, why: 'value' });
+  const read = (key, table) => {
+    if (!(key in options)) return null;
+    const v = pick(options[key], table);
+    if (!v) bad(key);
+    return v;
   };
-  let orientation = pick(options.orientation, { horizontal: ['horizontal', 'h', '横'], vertical: ['vertical', 'v', '縦'] });
-  let look = pick(options.look, { cards: ['cards', 'card', 'カード'], scale: ['scale', 'axis', '時間軸'] });
-  if (options.style && options.style.toLowerCase() === 'axis') { orientation = 'horizontal'; look = 'scale'; }
-  const density = pick(options.density, { compact: ['compact', '詰める'], comfortable: ['comfortable', 'ゆったり'] });
-  const desc = pick(options.desc, { hover: ['hover', 'ホバー'], show: ['show', '表示'] });
-  const range = {
-    start: options.start ? parseDate(options.start, dateOpts) : null,
-    end: options.end ? parseDate(options.end, dateOpts) : null,
-  };
+  let orientation = read('orientation', { horizontal: ['horizontal', 'h', '横'], vertical: ['vertical', 'v', '縦'] });
+  let look = read('look', { cards: ['cards', 'card', 'カード'], scale: ['scale', 'axis', '時間軸'] });
+  if ('style' in options) {
+    if (options.style.toLowerCase() === 'axis') { orientation = 'horizontal'; look = 'scale'; }
+    else bad('style');
+  }
+  const density = read('density', { compact: ['compact', '詰める'], comfortable: ['comfortable', 'ゆったり'] });
+  const desc = read('desc', { hover: ['hover', 'ホバー'], show: ['show', '表示'] });
+  const range = { start: null, end: null };
+  for (const key of ['start', 'end']) {
+    if (!(key in options)) continue;
+    range[key] = parseDate(options[key], dateOpts);
+    if (!range[key]) bad(key);
+  }
+  if (range.start && range.end && range.end.value < range.start.value) [range.start, range.end] = [range.end, range.start];
+  let height = 0;
+  if ('height' in options) {
+    height = parseInt(options.height, 10) || 0;
+    if (!height) bad('height');
+  }
+  if (range.start || range.end) {
+    const lo = range.start ? range.start.value : -Infinity;
+    const hi = range.end ? range.end.value : Infinity;
+    for (const it of items) {
+      const e = (it.end || it.start).value;
+      if (it.start.value < lo || e > hi) warnings.push({ lineNo: it.lineNo, text: it.text, why: 'range' });
+    }
+  }
+  warnings.sort((a, b) => a.lineNo - b.lineNo);
   return {
-    items, options, warnings, orientation, look, density, desc, range,
+    items, options, warnings, orientation, look, density, desc, range, height, optionLang,
     title: options.title || '',
     today: 'today' in options,
-    height: parseInt(options.height, 10) || 0,
   };
 }
 
 /* ── formatting ──────────────────────────────────── */
+
+const group3 = n => (Math.abs(n) >= 10000 ? n.toLocaleString('en-US') : String(n));
 
 class Formatter {
   constructor(settings) {
@@ -332,9 +399,12 @@ class Formatter {
     this.custom = settings.dateFormat === 'custom' ? (settings.customDateFormat || 'YYYY-MM-DD') : null;
     this.bce = settings.bceStyle === 'auto' ? (this.lang === 'ja' ? 'ja' : 'bce') : settings.bceStyle;
   }
+  monthName(m) {
+    return this.lang === 'ja' ? `${m}月` : this.t.months[m - 1];
+  }
   year(y) {
-    if (y >= 0) return this.lang === 'ja' && !this.iso ? `${y}年` : `${y}`;
-    const n = -y;
+    if (y >= 0) return this.lang === 'ja' && !this.iso ? `${group3(y)}年` : group3(y);
+    const n = group3(-y);
     switch (this.bce) {
       case 'ja': return `前${n}年`;
       case 'bc': return `${n} BC`;
@@ -342,26 +412,62 @@ class Formatter {
       default: return `${n} BCE`;
     }
   }
+  // wrap a date written with a bare year number in the chosen BCE marker
+  bceWrap(text, y) {
+    if (y >= 0) return text;
+    switch (this.bce) {
+      case 'ja': return `前${text}`;
+      case 'bc': return `${text} BC`;
+      case 'minus': return `-${text}`;
+      default: return `${text} BCE`;
+    }
+  }
+  customDate(d) {
+    const pad = n => String(n).padStart(2, '0');
+    // split the pattern into tokens and the literal text between them
+    const parts = [];
+    const re = /YYYY|YY|MMMM|MMM|MM|M|DD|D/g;
+    let last = 0;
+    let m;
+    while ((m = re.exec(this.custom))) {
+      if (m.index > last) parts.push({ lit: this.custom.slice(last, m.index) });
+      parts.push({ tok: m[0] });
+      last = m.index + m[0].length;
+    }
+    if (last < this.custom.length) parts.push({ lit: this.custom.slice(last) });
+    const has = tok => (tok[0] === 'Y' ? true : tok[0] === 'M' ? !!d.month : !!d.day);
+    // drop missing parts with the separator after them (or before them when they come last)
+    const keep = parts.map(() => true);
+    parts.forEach((p, i) => {
+      if (!p.tok || has(p.tok)) return;
+      keep[i] = false;
+      const after = parts[i + 1] && parts[i + 1].lit != null ? i + 1 : -1;
+      const before = parts[i - 1] && parts[i - 1].lit != null ? i - 1 : -1;
+      const isUnit = j => j >= 0 && /[^\s\-/.,:]/.test(parts[j].lit); // 年, 月, 日 … belong to their number
+      const laterToken = parts.slice(i + 2).some(q => q.tok && has(q.tok));
+      if (after >= 0 && (isUnit(after) || laterToken)) keep[after] = false;
+      else if (before >= 0 && !isUnit(before)) keep[before] = false;
+    });
+    const n = Math.abs(d.year);
+    // "前" and "-" go right before the year; BCE/BC follow the whole date
+    const yearPrefix = d.year < 0 && (this.bce === 'ja' || this.bce === 'minus') ? (this.bce === 'ja' ? '前' : '-') : '';
+    const out = parts.filter((p, i) => keep[i]).map(p => {
+      if (p.lit != null) return p.lit;
+      switch (p.tok) {
+        case 'YYYY': return yearPrefix + String(n);
+        case 'YY': return yearPrefix + pad(n % 100);
+        case 'MMMM': case 'MMM': return this.monthName(d.month);
+        case 'MM': return pad(d.month);
+        case 'M': return String(d.month);
+        case 'DD': return pad(d.day);
+        default: return String(d.day);
+      }
+    }).join('');
+    return yearPrefix ? out : this.bceWrap(out, d.year);
+  }
   date(d) {
     const pad = n => String(n).padStart(2, '0');
-    if (this.custom) {
-      let pattern = this.custom;
-      // drop parts the date does not have (and the separator next to them)
-      if (!d.day) pattern = pattern.replace(/[^A-Za-z]*D{1,2}[^A-Za-z]*/, m => (/^[^A-Za-z]/.test(m) && /[^A-Za-z]$/.test(m) ? m[0] : ''));
-      if (!d.month) pattern = pattern.replace(/[^A-Za-z]*M{1,4}[^A-Za-z]*/, m => (/^[^A-Za-z]/.test(m) && /[^A-Za-z]$/.test(m) ? m[0] : ''));
-      const months = STRINGS.en.months;
-      return pattern.replace(/YYYY|YY|MMMM|MMM|MM|M|DD|D/g, tok => {
-        switch (tok) {
-          case 'YYYY': return d.year < 0 ? this.year(d.year) : String(d.year);
-          case 'YY': return d.year < 0 ? this.year(d.year) : pad(Math.abs(d.year) % 100);
-          case 'MMMM': case 'MMM': return d.month ? months[d.month - 1] : '';
-          case 'MM': return d.month ? pad(d.month) : '';
-          case 'M': return d.month ? String(d.month) : '';
-          case 'DD': return d.day ? pad(d.day) : '';
-          default: return d.day ? String(d.day) : '';
-        }
-      }).replace(/^[^\dA-Za-z前]+|[^\dA-Za-z年]+$/g, '');
-    }
+    if (this.custom) return this.customDate(d);
     if (this.iso) {
       // ISO-like: negative years keep their sign (-0490-07-14)
       const y = d.year < 0 ? `-${String(-d.year).padStart(4, '0')}` : String(d.year).padStart(4, '0');
@@ -390,7 +496,7 @@ class Formatter {
   // labels on the axis; showYear marks the first tick and year changes
   tick(t, showYear) {
     const ja = this.lang === 'ja';
-    if (t.unit === 'year') return t.year < 0 ? this.year(t.year) : String(t.year);
+    if (t.unit === 'year') return t.year === 0 ? '' : this.year(t.year); // there is no year 0
     const yr = this.year(t.year);
     if (t.unit === 'month') {
       if (ja) return showYear ? `${yr}${t.month}月` : `${t.month}月`;
@@ -403,46 +509,51 @@ class Formatter {
 
 /* ── axis ticks ──────────────────────────────────── */
 
-// Pick a calendar-aware step (days, months or years) for about `count` ticks between min and
-// max, and widen the range outward to whole steps so both ends carry a tick.
+// Pick a calendar-aware step (days, months or years) for about `count` ticks. The drawn range
+// extends half a step past the data at most, and ticks are kept inside it.
 const SUB_YEAR_UNITS = [
   ['day', 1, 1 / 365.25], ['day', 2, 2 / 365.25], ['day', 7, 7 / 365.25], ['day', 14, 14 / 365.25],
   ['month', 1, 1 / 12], ['month', 2, 2 / 12], ['month', 3, 3 / 12], ['month', 6, 6 / 12],
 ];
 
 function buildTicks(min, max, count) {
-  if (!(max > min)) max = min + 1 / 12;
+  if (!(max > min)) { min -= 1 / 24; max += 1 / 24; }
   const rough = (max - min) / Math.max(count, 1);
-  const ticks = [];
-  const sub = SUB_YEAR_UNITS.find(([, , size]) => size >= rough);
-  if (sub && rough < 1) {
-    const [unit, n] = sub;
-    const s = fromValue(min);
-    let cur;
-    if (unit === 'month') cur = { y: s.year, m: Math.floor((s.month - 1) / n) * n + 1, d: 1 };
-    else cur = { y: s.year, m: s.month, d: s.day };
-    for (let guard = 0; guard < 400; guard++) {
-      const value = toValue(cur.y, cur.m, cur.d);
-      ticks.push({ unit, value, year: cur.y, month: cur.m, day: cur.d });
-      if (value >= max) break;
+  const all = [];
+  let stepSize;
+  const sub = rough < 1 ? SUB_YEAR_UNITS.find(([, , size]) => size >= rough) : null;
+  if (sub) {
+    const [unit, n, size] = sub;
+    stepSize = size;
+    const s = fromValue(min - size);
+    let cur = unit === 'month' ? { year: s.year, month: Math.floor((s.month - 1) / n) * n + 1, day: 1 } : s;
+    for (let guard = 0; guard < 600; guard++) {
+      const value = toValue(cur.year, cur.month, cur.day);
+      all.push({ unit, value, year: cur.year, month: cur.month, day: cur.day });
+      if (value > max + size) break;
       if (unit === 'month') {
-        cur.m += n;
-        while (cur.m > 12) { cur.m -= 12; cur.y += 1; }
-      } else {
-        const t = new Date(utc(cur.y, cur.m, cur.d) + n * 864e5);
-        cur = { y: t.getUTCFullYear(), m: t.getUTCMonth() + 1, d: t.getUTCDate() };
-      }
+        let m = cur.month + n;
+        let y = cur.year;
+        while (m > 12) { m -= 12; y++; }
+        cur = { year: y, month: m, day: 1 };
+      } else cur = addDays(cur, n);
     }
   } else {
     const mag = Math.pow(10, Math.floor(Math.log10(Math.max(rough, 1))));
     const step = [1, 2, 5, 10].map(k => k * mag).find(x => x >= rough) || mag * 10;
+    stepSize = step;
     const first = Math.floor(min / step) * step;
-    for (let v = first, guard = 0; guard < 400; v += step, guard++) {
-      ticks.push({ unit: 'year', value: v, year: v });
-      if (v >= max) break;
-    }
+    for (let v = first, guard = 0; guard < 600 && v <= max + step; v += step, guard++) all.push({ unit: 'year', value: v, year: v });
   }
-  return { min: ticks[0].value, max: ticks[ticks.length - 1].value, ticks };
+  // half a step of air at each end, snapped to a tick when one is close
+  let lo = min - stepSize / 2;
+  let hi = max + stepSize / 2;
+  const below = all.filter(t => t.value <= min).pop();
+  const above = all.find(t => t.value >= max);
+  if (below && below.value >= lo) lo = below.value;
+  if (above && above.value <= hi) hi = above.value;
+  const ticks = all.filter(t => t.value >= lo - 1e-9 && t.value <= hi + 1e-9);
+  return { min: lo, max: hi, ticks };
 }
 
 function tickLabels(ticks, fmt) {
@@ -463,8 +574,20 @@ function dataRange(data) {
   }
   if (data.range.start) min = data.range.start.value;
   if (data.range.end) max = data.range.end.value;
-  if (!isFinite(min)) { min = 0; max = 1; }
+  if (!isFinite(min) || !isFinite(max)) { min = 0; max = 1; }
   return { min, max };
+}
+
+// where an item sits inside a fixed range; parts outside are folded to the edge
+function clampItem(item, min, max) {
+  const s = item.start.value;
+  const e = (item.end || item.start).value;
+  return {
+    s: Math.min(Math.max(s, min), max),
+    e: Math.min(Math.max(e, min), max),
+    cutStart: s < min,
+    cutEnd: e > max,
+  };
 }
 
 const plainText = s => s
@@ -473,9 +596,10 @@ const plainText = s => s
 
 /* ── rendering helpers ───────────────────────────── */
 
-function renderInline(plugin, el, text, sourcePath, owner) {
+// render inline Markdown; resolves once Obsidian has finished (render can be asynchronous)
+async function renderInline(plugin, el, text, sourcePath, owner) {
   if (!text) return;
-  MarkdownRenderer.render(plugin.app, text, el, sourcePath, owner);
+  await MarkdownRenderer.render(plugin.app, text, el, sourcePath, owner);
   const p = el.querySelector(':scope > p');
   if (p && el.children.length === 1) {
     while (p.firstChild) el.appendChild(p.firstChild);
@@ -483,7 +607,7 @@ function renderInline(plugin, el, text, sourcePath, owner) {
   }
 }
 
-// a small floating note for descriptions on devices with a pointer
+// a small floating note for descriptions on devices with a pointer; placed beside the item
 function attachTip(el, text, owner) {
   if (!text || isTouch()) return;
   let tip = null;
@@ -493,10 +617,12 @@ function attachTip(el, text, owner) {
     tip.setText(text);
     const r = el.getBoundingClientRect();
     const tr = tip.getBoundingClientRect();
-    const left = Math.min(Math.max(8, r.left), window.innerWidth - tr.width - 8);
-    const top = r.top - tr.height - 6 > 8 ? r.top - tr.height - 6 : r.bottom + 6;
+    let left = r.right + 8;
+    let top = r.top + r.height / 2 - tr.height / 2;
+    if (left + tr.width > window.innerWidth - 8) left = r.left - tr.width - 8;
+    if (left < 8) { left = Math.min(Math.max(8, r.left), window.innerWidth - tr.width - 8); top = r.bottom + 6; }
     tip.style.left = `${left}px`;
-    tip.style.top = `${top}px`;
+    tip.style.top = `${Math.max(8, top)}px`;
   };
   const hide = () => { if (tip) { tip.remove(); tip = null; } };
   el.addEventListener('mouseenter', show);
@@ -507,7 +633,7 @@ function attachTip(el, text, owner) {
 }
 
 // make an item clickable: first link in the item → note with the same name → mention in this note
-function attachLink(plugin, el, item, ctx, fmt, hoverParent) {
+function attachLink(plugin, el, item, ctx, fmt, owner) {
   const s = plugin.settings;
   if (!s.linkItems) return null;
   const app = plugin.app;
@@ -521,7 +647,8 @@ function attachLink(plugin, el, item, ctx, fmt, hoverParent) {
   }
   if (m && m[1]) target = { link: m[1] };
   else if (m && m[2]) {
-    const dest = decodeURI(m[2]);
+    let dest = m[2];
+    try { dest = decodeURI(dest); } catch (e) { /* keep as written */ }
     target = /^[a-z][\w+.-]*:/i.test(dest) ? { url: dest } : { link: dest.replace(/\.md(?=#|$)/, '') };
   } else if (name && app.metadataCache.getFirstLinkpathDest(name, ctx.sourcePath)) target = { link: name };
   else if (name && s.searchInNote) target = { search: name };
@@ -564,10 +691,10 @@ function attachLink(plugin, el, item, ctx, fmt, hoverParent) {
     if (evt.key === 'Enter' || evt.key === ' ') { evt.preventDefault(); go(evt.metaKey || evt.ctrlKey); }
   });
   // Obsidian's page preview on hover (Ctrl/⌘ + hover, depending on the user's settings)
-  if (target.link && hoverParent) {
+  if (target.link && owner) {
     el.addEventListener('mouseover', evt => {
       app.workspace.trigger('hover-link', {
-        event: evt, source: 'preview', hoverParent, targetEl: el, linktext: target.link, sourcePath: ctx.sourcePath,
+        event: evt, source: 'preview', hoverParent: owner, targetEl: el, linktext: target.link, sourcePath: ctx.sourcePath,
       });
     });
   }
@@ -593,15 +720,20 @@ function addScrollFade(scroller, owner) {
     scroller.toggleClass('can-right', scroller.scrollLeft < max - 2);
   };
   scroller.addEventListener('scroll', update, { passive: true });
-  const observer = new ResizeObserver(update);
-  observer.observe(scroller);
-  owner.register(() => observer.disconnect());
+  observe(scroller, update, owner);
   requestAnimationFrame(update);
+}
+
+// run fn now (after layout) and whenever el changes size, until the owner is unloaded
+function observe(el, fn, owner) {
+  const observer = new ResizeObserver(() => fn());
+  observer.observe(el);
+  owner.register(() => observer.disconnect());
 }
 
 /* ── vertical cards: events first, periods shown as bands in the gutter ── */
 
-function renderCardsVertical(plugin, root, data, ctx, owner, fmt) {
+function renderCardsVertical(plugin, root, data, ctx, owner, fmt, pending) {
   const wrap = root.createDiv({ cls: 'ptl ptl-vertical' });
   const gutter = wrap.createDiv({ cls: 'ptl-v-gutter' });
   const list = wrap.createDiv({ cls: 'ptl-v-list' });
@@ -626,8 +758,8 @@ function renderCardsVertical(plugin, root, data, ctx, owner, fmt) {
     } else dateEl.setText(fmt.range(item));
     row.createDiv({ cls: 'ptl-v-node' });
     const body = row.createDiv({ cls: 'ptl-v-body' });
-    renderInline(plugin, body.createDiv({ cls: 'ptl-v-title' }), item.name, ctx.sourcePath, owner);
-    if (item.desc) renderInline(plugin, body.createDiv({ cls: 'ptl-v-desc' }), item.desc, ctx.sourcePath, owner);
+    pending.push(renderInline(plugin, body.createDiv({ cls: 'ptl-v-title' }), item.name, ctx.sourcePath, owner));
+    if (item.desc) pending.push(renderInline(plugin, body.createDiv({ cls: 'ptl-v-desc' }), item.desc, ctx.sourcePath, owner));
     attachLink(plugin, row, item, ctx, fmt, owner);
     if (!item.end && item.color) row.addClass('ptl-c-' + item.color, 'has-color');
     rows.push({ item, el: row });
@@ -637,7 +769,7 @@ function renderCardsVertical(plugin, root, data, ctx, owner, fmt) {
       periods.push({ item, row, color });
     }
   }
-  if (!periods.length) return;
+  if (!periods.length) return wrap;
 
   const drawBands = () => {
     gutter.empty();
@@ -665,27 +797,26 @@ function renderCardsVertical(plugin, root, data, ctx, owner, fmt) {
     }
     gutter.style.width = `${laneEnds.length * 7}px`;
   };
-  requestAnimationFrame(drawBands);
-  const observer = new ResizeObserver(drawBands);
-  observer.observe(list);
-  owner.register(() => observer.disconnect());
+  Promise.all(pending).then(() => requestAnimationFrame(drawBands));
+  observe(list, drawBands, owner);
+  return wrap;
 }
 
 /* ── horizontal scale: periods below the axis, events above it ── */
 
-function renderScaleHorizontal(plugin, root, data, ctx, owner, fmt) {
+function renderScaleHorizontal(plugin, root, data, ctx, owner, fmt, pending) {
   const items = data.items;
-  if (!items.length) return;
+  if (!items.length) return null;
   const raw = dataRange(data);
+  const fixed = !!(data.range.start || data.range.end);
 
   const outer = root.createDiv({ cls: 'ptl ptl-horizontal' });
-  if (data.height) outer.style.maxHeight = `${data.height}px`;
   const canvas = outer.createDiv({ cls: 'ptl-h-canvas' });
   const above = canvas.createDiv({ cls: 'ptl-h-above' });
   const axis = canvas.createDiv({ cls: 'ptl-h-axis' });
   const below = canvas.createDiv({ cls: 'ptl-h-below' });
   const touch = isTouch();
-  const hoverDesc = plugin.settings.descriptions === 'hover';
+  const showDesc = plugin.settings.descriptions !== 'hover';
 
   const placed = [];
   let periodIndex = 0;
@@ -693,38 +824,52 @@ function renderScaleHorizontal(plugin, root, data, ctx, owner, fmt) {
     const isSpan = !!item.end;
     const el = (isSpan ? below : above).createDiv({ cls: isSpan ? 'ptl-h-span' : 'ptl-h-point' });
     if (item.kind === 'marker') el.addClass('is-marker');
-    if (isSpan) el.addClass('ptl-c-' + colorFor(plugin, item, periodIndex++));
-    else if (item.color) el.addClass('ptl-c-' + item.color, 'has-color');
+    let color = null;
+    if (isSpan) color = colorFor(plugin, item, periodIndex++);
+    else if (item.color) { color = item.color; el.addClass('has-color'); }
+    if (color) el.addClass('ptl-c-' + color);
     if (item.openEnd) el.addClass('is-open');
-    renderInline(plugin, el.createDiv({ cls: 'ptl-h-label' }), `${fmt.range(item)}  ${item.name}`, ctx.sourcePath, owner);
+    pending.push(renderInline(plugin, el.createDiv({ cls: 'ptl-h-label' }), `${fmt.range(item)}  ${item.name}`, ctx.sourcePath, owner));
     if (touch) el.addClass('ptl-tap-detail');
     const go = attachLink(plugin, el, item, ctx, fmt, owner);
-    // descriptions: a floating note on hover (desktop), or the detail panel on tap (touch)
+    // descriptions: a floating note on hover (pointer), or the detail panel on tap (touch)
     if (item.desc) {
       el.addClass('has-desc');
-      if (!touch) attachTip(el, plainText(item.desc), owner);
+      attachTip(el, plainText(item.desc), owner);
     }
     if (touch) el.addEventListener('click', evt => {
       if (evt.target.closest('a')) return;
-      showDetail(plugin, outer, item, go, fmt, ctx, owner);
+      canvas.querySelectorAll('.is-selected').forEach(n => n.removeClass('is-selected'));
+      el.addClass('is-selected');
+      showDetail(plugin, root, item, go, fmt, ctx, owner);
     });
-    placed.push({ item, el, isSpan, stem: isSpan ? null : above.createDiv({ cls: 'ptl-h-stem' }) });
+    placed.push({ item, el, isSpan, color, stem: isSpan ? null : above.createDiv({ cls: 'ptl-h-stem' }) });
   }
-  // with "always show", list the descriptions under the axis as a compact legend
-  if (!hoverDesc && !touch && items.some(it => it.desc)) {
+  // with "always show", list the descriptions under the axis, each tied to its item by a dot
+  if (showDesc && items.some(it => it.desc)) {
     const legend = root.createDiv({ cls: 'ptl-h-legend' });
-    for (const item of items.filter(it => it.desc)) {
+    for (const p of placed.filter(q => q.item.desc)) {
       const row = legend.createDiv({ cls: 'ptl-h-legend-row' });
-      row.createSpan({ cls: 'ptl-h-legend-name', text: plainText(item.name) });
-      renderInline(plugin, row.createSpan({ cls: 'ptl-h-legend-desc' }), item.desc, ctx.sourcePath, owner);
+      const name = row.createSpan({ cls: 'ptl-h-legend-name' });
+      const dot = name.createSpan({ cls: 'ptl-h-legend-dot' + (p.isSpan ? ' is-span' : '') });
+      if (p.color) dot.addClass('ptl-c-' + p.color);
+      name.createSpan({ text: plainText(p.item.name) });
+      pending.push(renderInline(plugin, row.createSpan({ cls: 'ptl-h-legend-desc' }), p.item.desc, ctx.sourcePath, owner));
     }
   }
 
-  const LANE = plugin.settings.density === 'compact' ? 22 : 26;
+  const compact = plugin.settings.density === 'compact';
+  const LANE = touch ? (compact ? 28 : 34) : (compact ? 22 : 26);
   const layout = () => {
-    const width = Math.max((outer.clientWidth || 700) - 24, items.length * 46, plugin.settings.horizontalMinWidth);
-    const axisInfo = buildTicks(raw.min, raw.max, Math.max(3, Math.round(width / 110)));
-    const { min, max } = axisInfo;
+    if (!outer.clientWidth) return; // hidden: wait for the next resize
+    const width = Math.max(outer.clientWidth - 40, Math.min(items.length * 46, 2400), plugin.settings.horizontalMinWidth);
+    // fewer ticks when their labels are long (huge years, day labels)
+    let axisInfo = buildTicks(raw.min, raw.max, Math.max(3, Math.round(width / 110)));
+    const longest = Math.max(...tickLabels(axisInfo.ticks, fmt).map(l => l.length));
+    const fit = Math.max(2, Math.floor(width / (longest * 7 + 24)));
+    if (fit < axisInfo.ticks.length - 1) axisInfo = buildTicks(raw.min, raw.max, fit);
+    const min = fixed && data.range.start ? raw.min : axisInfo.min;
+    const max = fixed && data.range.end ? raw.max : axisInfo.max;
     const x = v => ((v - min) / (max - min)) * width;
     let right = width;
     const pack = (group, side) => {
@@ -735,22 +880,27 @@ function renderScaleHorizontal(plugin, root, data, ctx, owner, fmt) {
       };
       group.sort((a, b) => a.item.start.value - b.item.start.value);
       for (const p of group) {
-        const left = x(p.item.start.value);
-        const bar = p.isSpan ? Math.max(x(p.item.end.value) - left, 4) : 0;
+        const c = clampItem(p.item, min, max);
+        p.el.toggleClass('is-cut-start', c.cutStart);
+        p.el.toggleClass('is-cut-end', c.cutEnd);
+        const left = x(c.s);
+        const bar = p.isSpan ? Math.max(x(c.e) - left, 4) : 0;
         p.el.style.width = p.isSpan ? `${bar}px` : '';
-        const need = Math.max(bar, p.el.querySelector('.ptl-h-label').scrollWidth + 14);
-        // points may hang their label to the left when that keeps the stack lower
+        const labelW = p.el.querySelector('.ptl-h-label').scrollWidth + 14;
+        const need = Math.max(bar, labelW);
+        p.el.toggleClass('is-overflow', p.isSpan && labelW > bar);
+        // points hang their label to the left near the right edge, or when it keeps the stack lower
         const normalLane = laneFor(left);
         const canFlip = !p.isSpan && left - need >= 0;
-        const flipLane = canFlip ? laneFor(left - need) : Infinity;
-        const flip = canFlip && (flipLane < normalLane || (left + need > width + 8 && flipLane <= normalLane));
-        const from = flip ? left - need : left;
+        const flipLane = canFlip ? laneFor(left - need + 5) : Infinity;
+        const flip = canFlip && (flipLane < normalLane || left + need > width);
+        const from = flip ? left - need + 5 : left;
         const lane = flip ? flipLane : normalLane;
         if (lane === laneEnds.length) laneEnds.push(0);
         laneEnds[lane] = from + need;
         right = Math.max(right, from + need);
         p.el.toggleClass('is-flipped', flip);
-        p.el.style.left = flip ? `${left - need + 10}px` : `${left}px`;
+        p.el.style.left = `${flip ? left - need + 5 : left}px`;
         if (flip) p.el.style.width = `${need}px`;
         p.el.style[side === 'above' ? 'bottom' : 'top'] = `${lane * LANE + (side === 'above' ? 6 : 4)}px`;
         if (p.stem) {
@@ -767,24 +917,24 @@ function renderScaleHorizontal(plugin, root, data, ctx, owner, fmt) {
     canvas.style.width = `${right + 16}px`;
 
     axis.empty();
-    const labels = tickLabels(axisInfo.ticks, fmt);
-    axisInfo.ticks.forEach((t, i) => {
+    const ticks = axisInfo.ticks.filter(t => t.value >= min - 1e-9 && t.value <= max + 1e-9);
+    const labels = tickLabels(ticks, fmt);
+    ticks.forEach((t, i) => {
       const tick = axis.createDiv({ cls: 'ptl-h-tick' });
       tick.style.left = `${x(t.value)}px`;
       tick.setText(labels[i]);
     });
   };
-  requestAnimationFrame(layout);
-  const observer = new ResizeObserver(layout);
-  observer.observe(outer);
-  owner.register(() => observer.disconnect());
+  Promise.all(pending).then(() => requestAnimationFrame(layout));
+  observe(outer, layout, owner);
   addScrollFade(outer, owner);
+  return outer;
 }
 
 /* ── horizontal cards: evenly spaced nodes on a line, cards alternating above and below ── */
 // Every cell is a direct child of one grid (no subgrid), so rows line up on older engines too.
 
-function renderCardsHorizontal(plugin, root, data, ctx, owner, fmt) {
+function renderCardsHorizontal(plugin, root, data, ctx, owner, fmt, pending) {
   const outer = root.createDiv({ cls: 'ptl ptl-cards-h' });
   const track = outer.createDiv({ cls: 'ptl-ch-track' });
   let periodIndex = 0;
@@ -798,8 +948,8 @@ function renderCardsHorizontal(plugin, root, data, ctx, owner, fmt) {
     const place = (el, row) => { el.style.gridColumn = String(i + 1); el.style.gridRow = String(row); };
 
     const card = track.createDiv({ cls: ['ptl-ch-card', ...cls].join(' ') });
-    renderInline(plugin, card.createDiv({ cls: 'ptl-ch-title' }), item.name, ctx.sourcePath, owner);
-    if (item.desc) renderInline(plugin, card.createDiv({ cls: 'ptl-ch-desc' }), item.desc, ctx.sourcePath, owner);
+    pending.push(renderInline(plugin, card.createDiv({ cls: 'ptl-ch-title' }), item.name, ctx.sourcePath, owner));
+    if (item.desc) pending.push(renderInline(plugin, card.createDiv({ cls: 'ptl-ch-desc' }), item.desc, ctx.sourcePath, owner));
     const date = track.createDiv({ cls: ['ptl-ch-date', ...cls].join(' '), text: fmt.range(item) });
     const node = track.createDiv({ cls: ['ptl-ch-node', ...cls].join(' ') });
     if (i === 0) node.addClass('is-first');
@@ -810,119 +960,154 @@ function renderCardsHorizontal(plugin, root, data, ctx, owner, fmt) {
     attachLink(plugin, card, item, ctx, fmt, owner);
   });
   addScrollFade(outer, owner);
+  return outer;
 }
 
 /* ── vertical scale: a time axis running down the page; periods as columns ── */
+// Labels are measured after they are rendered, so wrapped (two-line) labels never overlap,
+// and everything is laid out again whenever the width changes.
 
-function renderScaleVertical(plugin, root, data, ctx, owner, fmt) {
+function renderScaleVertical(plugin, root, data, ctx, owner, fmt, pending) {
   const items = data.items;
-  if (!items.length) return;
+  if (!items.length) return null;
   const raw = dataRange(data);
-  const axisInfo = buildTicks(raw.min, raw.max, Math.min(12, Math.max(4, Math.round(items.length * 1.2))));
-  const { min, max } = axisInfo;
-  const ROW = plugin.settings.density === 'compact' ? 22 : 28;
-  const showDesc = plugin.settings.descriptions === 'show';
-  const labelH = it => (it.desc && showDesc ? ROW * 1.7 : ROW);
-  // stretch the axis until consecutive labels fit at their true positions (capped)
-  let H = Math.max(items.length * ROW, 320);
-  for (let i = 0; i + 1 < items.length; i++) {
-    const dv = items[i + 1].start.value - items[i].start.value;
-    if (dv > 0) H = Math.max(H, (labelH(items[i]) * (max - min)) / dv);
-  }
-  H = Math.min(H, Math.max(480, items.length * ROW * 2.4));
-  const linear = v => ((v - min) / (max - min)) * H;
-  // where each label lands, item by item (equal dates stack instead of overlapping)
-  const order = items.map((it, i) => i).sort((a, b) => items[a].start.value - items[b].start.value);
-  const labelTop = new Array(items.length);
-  const anchors = [];
-  let cursor = 0;
-  for (const i of order) {
-    const it = items[i];
-    const top = Math.max(linear(it.start.value), cursor);
-    labelTop[i] = top;
-    const last = anchors[anchors.length - 1];
-    if (!last || last[0] !== it.start.value) anchors.push([it.start.value, top]);
-    cursor = top + labelH(it);
-  }
-  // time → y: proportional where labels fit, gently stretched where they were pushed
-  const y = v => {
-    if (!anchors.length || v <= anchors[0][0]) return linear(v) + (anchors.length ? anchors[0][1] - linear(anchors[0][0]) : 0);
-    for (let i = 0; i + 1 < anchors.length; i++) {
-      const [v0, y0] = anchors[i];
-      const [v1, y1] = anchors[i + 1];
-      if (v <= v1) return y0 + ((v - v0) / (v1 - v0)) * (y1 - y0);
-    }
-    const [vl, yl] = anchors[anchors.length - 1];
-    return yl + linear(v) - linear(vl);
-  };
-  H = Math.max(H, y(max), cursor);
+  const fixed = !!(data.range.start || data.range.end);
+  const showDesc = plugin.settings.descriptions !== 'hover';
 
   const outer = root.createDiv({ cls: 'ptl ptl-scale-v' });
-  if (data.height) outer.style.maxHeight = `${data.height}px`;
   const canvas = outer.createDiv({ cls: 'ptl-sv-canvas' });
-  canvas.style.height = `${H + 24}px`;
   const axis = canvas.createDiv({ cls: 'ptl-sv-axis' });
   const cols = canvas.createDiv({ cls: 'ptl-sv-cols' });
   const labelsEl = canvas.createDiv({ cls: 'ptl-sv-labels' });
 
-  const tickText = tickLabels(axisInfo.ticks, fmt);
-  axisInfo.ticks.forEach((t, i) => {
-    const tick = axis.createDiv({ cls: 'ptl-sv-tick' });
-    tick.style.top = `${y(t.value)}px`;
-    tick.setText(tickText[i]);
-  });
-  // the axis column is as wide as its longest label
-  requestAnimationFrame(() => {
-    const widest = Math.max(0, ...[...axis.children].map(c => c.scrollWidth));
-    canvas.style.gridTemplateColumns = `${Math.max(widest + 14, 36)}px auto 1fr`;
-  });
-
-  // periods: vertical bars packed into columns
-  const colEnds = [];
+  // periods get their colors in date order
   let periodIndex = 0;
-  const barColor = new Map();
+  const colorOf = new Map();
   for (const item of items.filter(it => it.end).sort((a, b) => a.start.value - b.start.value)) {
-    const top = y(item.start.value);
-    const bottom = Math.max(y(item.end.value), top + 6);
-    let col = colEnds.findIndex(end => end <= top - 4);
-    if (col < 0) { col = colEnds.length; colEnds.push(0); }
-    colEnds[col] = bottom;
-    const color = colorFor(plugin, item, periodIndex++);
-    barColor.set(item, color);
-    const bar = cols.createDiv({ cls: 'ptl-sv-bar ptl-c-' + color });
-    if (item.openEnd) bar.addClass('is-open');
-    bar.style.top = `${top}px`;
-    bar.style.height = `${bottom - top}px`;
-    bar.style.left = `${col * 12}px`;
-    bar.setAttr('aria-label', `${fmt.range(item)} ${plainText(item.name)}`);
+    colorOf.set(item, colorFor(plugin, item, periodIndex++));
   }
-  cols.style.width = `${Math.max(colEnds.length * 12, 4)}px`;
-
-  items.forEach((item, i) => {
+  const bars = new Map();
+  for (const item of colorOf.keys()) {
+    const bar = cols.createDiv({ cls: 'ptl-sv-bar ptl-c-' + colorOf.get(item) });
+    if (item.openEnd) bar.addClass('is-open');
+    bar.setAttr('aria-label', `${fmt.range(item)} ${plainText(item.name)}`);
+    bars.set(item, bar);
+  }
+  const labels = items.map(item => {
     const label = labelsEl.createDiv({ cls: 'ptl-sv-label' + (item.end ? ' is-span' : '') + (item.kind === 'marker' ? ' is-marker' : '') });
-    if (barColor.has(item)) label.addClass('ptl-c-' + barColor.get(item));
+    if (colorOf.has(item)) label.addClass('ptl-c-' + colorOf.get(item));
     else if (item.color) label.addClass('has-color', 'ptl-c-' + item.color);
-    label.style.top = `${labelTop[i]}px`;
     label.createSpan({ cls: 'ptl-sv-date', text: fmt.range(item) });
-    renderInline(plugin, label.createSpan({ cls: 'ptl-sv-name' }), item.name, ctx.sourcePath, owner);
+    pending.push(renderInline(plugin, label.createSpan({ cls: 'ptl-sv-name' }), item.name, ctx.sourcePath, owner));
     if (item.desc) {
-      if (showDesc) renderInline(plugin, label.createDiv({ cls: 'ptl-sv-desc' }), item.desc, ctx.sourcePath, owner);
+      if (showDesc) pending.push(renderInline(plugin, label.createDiv({ cls: 'ptl-sv-desc' }), item.desc, ctx.sourcePath, owner));
       else attachTip(label, plainText(item.desc), owner);
     }
     attachLink(plugin, label, item, ctx, fmt, owner);
+    return label;
   });
+
+  const GAP = 4;
+  let lastWidth = -1;
+  const layout = () => {
+    const width = labelsEl.clientWidth;
+    if (!width || width === lastWidth) return; // hidden, or nothing changed
+    lastWidth = width;
+    const heights = labels.map(l => Math.max(l.offsetHeight, 18) + GAP);
+    const axisInfo = buildTicks(raw.min, raw.max, Math.min(12, Math.max(4, Math.round(items.length * 1.2))));
+    const min = fixed && data.range.start ? raw.min : axisInfo.min;
+    const max = fixed && data.range.end ? raw.max : axisInfo.max;
+    const span = max - min || 1;
+    // stretch the axis until consecutive labels fit at their true positions (capped)
+    let H = Math.max(items.length * 28, 280);
+    const order = items.map((it, i) => i).sort((a, b) => items[a].start.value - items[b].start.value);
+    const pos = i => clampItem(items[i], min, max).s;
+    for (let k = 0; k + 1 < order.length; k++) {
+      const dv = pos(order[k + 1]) - pos(order[k]);
+      if (dv > 0) H = Math.max(H, (heights[order[k]] * span) / dv);
+    }
+    H = Math.min(H, Math.max(480, heights.reduce((a, b) => a + b, 0) * 2.2));
+    const linear = v => ((v - min) / span) * H;
+    // place labels item by item (equal dates stack), then bend the axis to follow them
+    const top = new Array(items.length);
+    const anchors = [];
+    let cursor = 0;
+    for (const i of order) {
+      const v = pos(i);
+      const t = Math.max(linear(v), cursor);
+      top[i] = t;
+      const last = anchors[anchors.length - 1];
+      if (!last || last[0] !== v) anchors.push([v, t]);
+      cursor = t + heights[i];
+    }
+    const y = v => {
+      if (!anchors.length || v <= anchors[0][0]) return linear(v) + (anchors.length ? anchors[0][1] - linear(anchors[0][0]) : 0);
+      for (let k = 0; k + 1 < anchors.length; k++) {
+        const [v0, y0] = anchors[k];
+        const [v1, y1] = anchors[k + 1];
+        if (v <= v1) return y0 + ((v - v0) / (v1 - v0)) * (y1 - y0);
+      }
+      const [vl, yl] = anchors[anchors.length - 1];
+      return yl + linear(v) - linear(vl);
+    };
+    const total = Math.max(H, y(max), cursor);
+    canvas.style.height = `${total + 12}px`;
+    labels.forEach((l, i) => {
+      l.style.top = `${top[i]}px`;
+      const c = clampItem(items[i], min, max);
+      l.toggleClass('is-cut-start', c.cutStart);
+      l.toggleClass('is-cut-end', c.cutEnd);
+    });
+
+    axis.empty();
+    const ticks = axisInfo.ticks.filter(t => t.value >= min - 1e-9 && t.value <= max + 1e-9);
+    const text = tickLabels(ticks, fmt);
+    ticks.forEach((t, i) => {
+      const tick = axis.createDiv({ cls: 'ptl-sv-tick' });
+      tick.style.top = `${y(t.value)}px`;
+      tick.setText(text[i]);
+    });
+    const widest = Math.max(0, ...[...axis.children].map(n => n.scrollWidth));
+    canvas.style.gridTemplateColumns = `${Math.max(widest + 14, 36)}px auto minmax(0, 1fr)`;
+
+    const colEnds = [];
+    for (const [item, bar] of bars) {
+      const c = clampItem(item, min, max);
+      const t = y(c.s);
+      const b = Math.max(y(c.e), t + 6);
+      let col = colEnds.findIndex(end => end <= t - 4);
+      if (col < 0) { col = colEnds.length; colEnds.push(0); }
+      colEnds[col] = b;
+      bar.style.top = `${t}px`;
+      bar.style.height = `${b - t}px`;
+      bar.style.left = `${col * 12}px`;
+      bar.toggleClass('is-cut-start', c.cutStart);
+      bar.toggleClass('is-cut-end', c.cutEnd);
+    }
+    cols.style.width = `${Math.max(colEnds.length * 12, 4)}px`;
+  };
+  Promise.all(pending).then(() => requestAnimationFrame(() => { lastWidth = -1; layout(); }));
+  observe(labelsEl, layout, owner);
+  return outer;
 }
 
 // tapping an item on the axis (touch devices) shows its details below the timeline
-function showDetail(plugin, outer, item, go, fmt, ctx, owner) {
-  let panel = outer.parentElement.querySelector(':scope > .ptl-detail');
-  if (!panel) panel = outer.parentElement.createDiv({ cls: 'ptl-detail' });
+function showDetail(plugin, root, item, go, fmt, ctx, owner) {
+  let panel = root.querySelector(':scope > .ptl-detail');
+  if (!panel) {
+    panel = root.createDiv({ cls: 'ptl-detail' });
+    const after = root.querySelector(':scope > .ptl-horizontal');
+    if (after && after.nextSibling) root.insertBefore(panel, after.nextSibling);
+  }
   panel.empty();
   const head = panel.createDiv({ cls: 'ptl-detail-head' });
   head.createSpan({ cls: 'ptl-detail-date', text: fmt.range(item) });
   const close = head.createEl('button', { cls: 'ptl-detail-close', text: '×' });
   close.setAttr('aria-label', fmt.t.close);
-  close.onclick = () => panel.remove();
+  close.onclick = () => {
+    panel.remove();
+    root.querySelectorAll('.is-selected').forEach(n => n.removeClass('is-selected'));
+  };
   renderInline(plugin, panel.createDiv({ cls: 'ptl-detail-title' }), item.name, ctx.sourcePath, owner);
   if (item.desc) renderInline(plugin, panel.createDiv({ cls: 'ptl-detail-desc' }), item.desc, ctx.sourcePath, owner);
   if (go) {
@@ -934,7 +1119,7 @@ function showDetail(plugin, outer, item, go, fmt, ctx, owner) {
 function renderWarnings(root, warnings, fmt) {
   if (!warnings.length) return;
   const box = root.createEl('details', { cls: 'ptl-warn' });
-  box.createEl('summary', { text: fmt.t.skipped(warnings.length) });
+  box.createEl('summary', { text: fmt.t.warnTitle(warnings.length) });
   for (const w of warnings) {
     const row = box.createDiv({ cls: 'ptl-warn-row' });
     row.createSpan({ cls: 'ptl-warn-where', text: `${fmt.t.lineNo(w.lineNo)} · ${fmt.t.why[w.why]}` });
@@ -955,13 +1140,16 @@ class PlainTimelinePlugin extends Plugin {
 
   // override: { orientation, look } used when the block cannot be rewritten (embeds, Canvas, popovers)
   render(source, el, ctx, override) {
+    // a re-render in place (from the switch) first releases everything the previous one held
+    if (el.ptlOwner) { el.ptlOwner.unload(); el.empty(); }
     const owner = new TimelineRender(el);
+    el.ptlOwner = owner;
     ctx.addChild(owner);
     const base = this.settings;
     const fmt = new Formatter(base);
     const data = parseBlock(source, base.sortOrder, { order: base.inputOrder, pivot: base.twoDigitPivot });
     if (data.today) {
-      data.items.push({ kind: 'marker', start: today(), end: null, name: fmt.t.today, desc: '', color: 'red' });
+      data.items.push({ kind: 'marker', start: today(), end: null, name: fmt.t.today, desc: '', color: 'red', lineNo: 0, text: '' });
       if (base.sortOrder !== 'written') data.items.sort((a, b) => a.start.value - b.start.value);
     }
     // per-block options layered over the global settings
@@ -979,56 +1167,71 @@ class PlainTimelinePlugin extends Plugin {
     el.toggleClass('ptl-desc-hover', s.descriptions === 'hover' && !isTouch());
     el.toggleClass('ptl-touch', isTouch());
     el.toggleClass('ptl-phone', isPhone());
-    el.toggleClass('has-title', !!data.title);
 
-    if (data.title) el.createDiv({ cls: 'ptl-title', text: data.title });
-    if (s.showSwitch) {
-      const bar = el.createDiv({ cls: 'ptl-switch' });
-      const group = (values, current, key) => {
-        const g = bar.createDiv({ cls: 'ptl-switch-group' });
-        for (const value of values) {
-          const btn = g.createEl('button', { text: fmt.t[value] });
-          if (value === current) btn.addClass('is-active');
-          btn.setAttr('aria-label', fmt.t[value + 'Hint']);
-          btn.setAttr('aria-pressed', String(value === current));
-          btn.onclick = async () => {
-            if (value === current) return;
-            const next = key === 'orientation' ? { orientation: value, look: data.look ? look : null } : { orientation, look: value };
-            if (key === 'orientation' && !data.look) next.look = defaultLookFor(value);
-            const saved = await this.setFlags(el, ctx, next, fmt.lang);
-            if (!saved) { el.empty(); this.render(source, el, ctx, next); }
-          };
-        }
-      };
-      group(['vertical', 'horizontal'], orientation, 'orientation');
-      group(['cards', 'scale'], look, 'look');
+    if (data.title || s.showSwitch) {
+      const head = el.createDiv({ cls: 'ptl-head' });
+      head.createDiv({ cls: 'ptl-title', text: data.title });
+      if (s.showSwitch) {
+        const bar = head.createDiv({ cls: 'ptl-switch' });
+        const group = (values, current, key) => {
+          const g = bar.createDiv({ cls: 'ptl-switch-group' });
+          for (const value of values) {
+            const btn = g.createEl('button', { text: fmt.t[value] });
+            if (value === current) btn.addClass('is-active');
+            btn.setAttr('aria-label', fmt.t[value + 'Hint']);
+            btn.setAttr('aria-pressed', String(value === current));
+            btn.onclick = async () => {
+              if (value === current) return;
+              const next = key === 'orientation'
+                ? { orientation: value, look: data.look ? look : defaultLookFor(value) }
+                : { orientation, look: value };
+              const saved = await this.setFlags(el, ctx, next, data.optionLang || fmt.lang);
+              if (!saved) this.render(source, el, ctx, next);
+            };
+          }
+        };
+        group(['vertical', 'horizontal'], orientation, 'orientation');
+        group(['cards', 'scale'], look, 'look');
+      }
     }
     const renderer = orientation === 'horizontal'
       ? (look === 'cards' ? renderCardsHorizontal : renderScaleHorizontal)
       : (look === 'scale' ? renderScaleVertical : renderCardsVertical);
-    renderer(view, el, data, ctx, owner, fmt);
+    const pending = [];
+    const box = renderer(view, el, data, ctx, owner, fmt, pending);
+    if (box && data.height) {
+      box.style.maxHeight = `${data.height}px`;
+      box.addClass('has-height');
+    }
     if (s.showWarnings) renderWarnings(el, data.warnings, fmt);
   }
 
   // rewrite the orientation / look lines of this block and save the note; false if not possible.
-  // Lines are written only when they differ from the defaults, so blocks stay clean.
+  // Lines are written only when they differ from the defaults, in the language the block's own
+  // options use, right after the block's other leading option lines.
   async setFlags(el, ctx, next, lang) {
     const info = ctx.getSectionInfo && ctx.getSectionInfo(el);
     const file = this.app.vault.getAbstractFileByPath(ctx.sourcePath);
     if (!info || !file) return false;
     const s = this.settings;
     const defaultLookFor = o => (s.defaultLook === 'auto' ? (o === 'horizontal' ? 'scale' : 'cards') : s.defaultLook);
-    const head = [];
+    const add = [];
     if (next.orientation !== s.defaultOrientation) {
-      head.push(lang === 'ja' ? `> 向き ${next.orientation === 'horizontal' ? '横' : '縦'}` : `> orientation ${next.orientation}`);
+      add.push(lang === 'ja' ? `> 向き ${next.orientation === 'horizontal' ? '横' : '縦'}` : `> orientation ${next.orientation}`);
     }
     if (next.look !== defaultLookFor(next.orientation)) {
-      head.push(lang === 'ja' ? `> 見た目 ${next.look === 'scale' ? '時間軸' : 'カード'}` : `> look ${next.look}`);
+      add.push(lang === 'ja' ? `> 見た目 ${next.look === 'scale' ? '時間軸' : 'カード'}` : `> look ${next.look}`);
     }
     await this.app.vault.process(file, text => {
       const lines = text.split('\n');
-      const body = lines.slice(info.lineStart + 1, info.lineEnd).filter(line => !FLAG_LINE.test(line));
-      lines.splice(info.lineStart + 1, info.lineEnd - info.lineStart - 1, ...head, ...body);
+      const body = lines.slice(info.lineStart + 1, info.lineEnd).filter(line => {
+        const m = line.match(OPTION_LINE);
+        return !(m && (FLAG_KEYS.has(m[1]) || FLAG_KEYS.has(m[1].toLowerCase())));
+      });
+      let at = 0;
+      while (at < body.length && /^\s*(>|#|$)/.test(body[at])) at++;
+      body.splice(at, 0, ...add);
+      lines.splice(info.lineStart + 1, info.lineEnd - info.lineStart - 1, ...body);
       return lines.join('\n');
     });
     return true;
@@ -1036,10 +1239,12 @@ class PlainTimelinePlugin extends Plugin {
 
   async saveSettings() {
     await this.saveData(this.settings);
-    // re-render open notes so changes show immediately
+    // re-render open notes (reading view and Live Preview) so changes show immediately
     this.app.workspace.iterateAllLeaves(leaf => {
-      const mode = leaf.view && leaf.view.previewMode;
-      if (mode && typeof mode.rerender === 'function') mode.rerender(true);
+      const view = leaf.view;
+      if (!view || view.getViewType() !== 'markdown') return;
+      if (view.previewMode && typeof view.previewMode.rerender === 'function') view.previewMode.rerender(true);
+      if (typeof leaf.rebuildView === 'function' && view.getMode && view.getMode() === 'source') leaf.rebuildView();
     });
   }
 }
