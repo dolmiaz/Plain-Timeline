@@ -1,7 +1,7 @@
 {
   "id": "plain-timeline",
   "name": "Plain Timeline",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "minAppVersion": "1.4.0",
   "description": "Render timelines from plain-text code blocks — vertical or horizontal, as cards or to scale. Year-only dates, months, BCE, and flexible date formats. English and Japanese.",
   "author": "dolmiaz",

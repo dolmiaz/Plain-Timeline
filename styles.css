@@ -237,6 +237,7 @@
 }
 .ptl-nv-head > :is(h1, h2, h3, h4) {
   position: relative;
+  min-height: 1.2em;  /* a heading with only a time still has room for it */
   padding-left: calc(var(--ptl-nv-col) + var(--ptl-nv-gap));
   margin-bottom: 0.4em;
 }
@@ -255,6 +256,10 @@
 }
 .ptl-nv-date {
   background: var(--background-primary);
+  max-width: calc(var(--ptl-nv-col) + var(--ptl-nv-gap) - 6px);
+  flex-shrink: 0;  /* overflow:hidden would otherwise let the column squeeze it to nothing */
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: var(--font-ui-smaller);
   font-weight: var(--font-normal);
   color: var(--text-muted);
@@ -267,7 +272,10 @@
   border-bottom: 2px solid var(--ptl-c, var(--text-muted));
   white-space: nowrap;
   background: var(--background-primary);
+  cursor: pointer;
 }
+.ptl-nv-time:hover { color: var(--text-accent); }
+.ptl-nv-time:focus-visible { outline: 2px solid var(--interactive-accent, var(--text-accent)); outline-offset: 2px; border-radius: 3px; }
 .ptl-nv-head.ptl-nv-open > :is(h1, h2, h3, h4)::after,
 .ptl-nv-body::before {
   content: "";
@@ -292,5 +300,13 @@
 }
 .ptl-nv-body.ptl-nv-first { border-top-left-radius: 8px; border-top-right-radius: 8px; padding-top: 0.3em; margin-top: 0.6em; }
 .ptl-nv-body.ptl-nv-last { border-bottom-left-radius: 8px; border-bottom-right-radius: 8px; padding-bottom: 0.3em; margin-bottom: 1.4em; }
-.is-phone .ptl-nv { --ptl-nv-col: 84px; --ptl-nv-gap: 10px; }
+.is-phone .ptl-nv { --ptl-nv-col: 100px; --ptl-nv-gap: 10px; }
+.is-phone .ptl-nv-body.ptl-nv-last { margin-bottom: 0.8em; }
 .is-phone .ptl-nv-body { padding: 0 0.7em; }
+/* inside the card, blocks keep their own margins (flow-root); halve them so the card reads like the note */
+.ptl-nv-body > * { margin-top: 0.5em; margin-bottom: 0.5em; }
+/* a folded entry has no body to connect to */
+.ptl-nv-head.is-collapsed > :is(h1, h2, h3, h4)::after,
+.ptl-nv-head > :is(h1, h2, h3, h4).is-collapsed::after { display: none; }
+/* timelines inside an entry keep their own colors, not the entry's accent */
+.ptl-nv-body .ptl-host { --ptl-c: initial; }

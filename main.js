@@ -56,7 +56,7 @@ const STRINGS = {
     vertical: 'Vertical', horizontal: 'Horizontal', cards: 'Cards', scale: 'Scale',
     verticalHint: 'Lay the timeline out vertically', horizontalHint: 'Lay the timeline out horizontally',
     cardsHint: 'Evenly spaced cards — best for events', scaleHint: 'Drawn to scale — best for periods',
-    open: t => `Open ${t}`, jump: 'Jump to where this appears in the note', go: 'Open', close: 'Close',
+    open: t => `Open ${t}`, editHere: 'Edit the note at this entry', jump: 'Jump to where this appears in the note', go: 'Open', close: 'Close',
     present: 'present', today: 'Today',
     months: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
     warnTitle: n => `${n} note${n > 1 ? 's' : ''} about this timeline`,
@@ -95,11 +95,12 @@ const STRINGS = {
       minWidth: ['Horizontal minimum width', 'Minimum width (px) of the horizontal axis before it scrolls.'],
       warnings: ['Show notes about unreadable lines', 'List lines that could not be read (or were adjusted) under the timeline.'],
       noteView: 'Note view',
-      noteFolders: ['Folders', 'Notes in these folders show headings that start with a time (e.g. "## 2026-10-21 23:52 Title" or "## 09:30 Title") as a timeline in reading view. One folder per line; * matches one folder name, ** any depth (e.g. Projects/*/Worklog). A note can opt in or out with "plain-timeline: notes" or "plain-timeline: off" in its properties.'],
+      noteFolders: ['Folders', 'Notes in these folders show headings that start with a time (e.g. "## 2026-10-21 23:52 Title" or "## 09:30 Title") as a timeline in reading view. One folder per line; * matches one folder name, ** any depth (e.g. Projects/*/Worklog). Add a color at the end to tint that folder (e.g. Projects/*/Worklog #green). A note can opt in or out with "plain-timeline: notes" or "plain-timeline: off" in its properties.'],
       noteLevel: ['Heading level', 'Which headings start an entry. Deeper headings belong to the entry above them.'],
     },
   },
   ja: {
+    editHere: 'この項目の位置でノートを編集',
     vertical: '縦', horizontal: '横', cards: 'カード', scale: '時間軸',
     verticalHint: '縦に並べる', horizontalHint: '横に並べる',
     cardsHint: '等間隔のカード(出来事向き)', scaleHint: '長さを時間に比例させる(期間向き)',
@@ -142,7 +143,7 @@ const STRINGS = {
       minWidth: ['横の最小幅', '横の時間軸がスクロールに切り替わる最小の幅(px)。'],
       warnings: ['読めない行のお知らせを表示', '読めなかった行や調整した行を年表の下に出す。'],
       noteView: 'ノート表示',
-      noteFolders: ['フォルダ', 'ここに書いたフォルダの中のノートは、時刻で始まる見出し(「## 2026-10-21 23:52 タイトル」「## 09:30 タイトル」など)を閲覧モードで時系列に並べて表示する。1行に1フォルダ。* はフォルダ名1つ、** は任意の深さに当たる(例 Projects/*/Worklog)。ノートのプロパティに「plain-timeline: notes」「plain-timeline: off」と書くと、そのノートだけ対象に入れる・外すことができる。'],
+      noteFolders: ['フォルダ', 'ここに書いたフォルダの中のノートは、時刻で始まる見出し(「## 2026-10-21 23:52 タイトル」「## 09:30 タイトル」など)を閲覧モードで時系列に並べて表示する。1行に1フォルダ。* はフォルダ名1つ、** は任意の深さに当たる(例 Projects/*/Worklog)。末尾に色を書くとそのフォルダの色になる(例 Projects/*/Worklog #green)。ノートのプロパティに「plain-timeline: notes」「plain-timeline: off」と書くと、そのノートだけ対象に入れる・外すことができる。'],
       noteLevel: ['見出しのレベル', '項目を始める見出し。それより深い見出しは上の項目の中身になる。'],
     },
   },
@@ -798,7 +799,9 @@ function renderCardsVertical(plugin, root, data, ctx, owner, fmt, pending) {
   for (const item of data.items) {
     if (item.kind === 'marker') {
       const marker = list.createDiv({ cls: 'ptl-v-marker' });
-      marker.createSpan({ text: `${fmt.date(item.start)}  ${plainText(item.name)}` });
+      marker.createSpan({ text: `${fmt.date(item.start)}  ` });
+      pending.push(renderInline(plugin, marker.createSpan({ cls: 'ptl-v-marker-name' }), item.name, ctx.sourcePath, owner));
+      attachLink(plugin, marker, item, ctx, fmt, owner);
       rows.push({ item, el: marker });
       continue;
     }
@@ -1144,7 +1147,13 @@ function renderScaleVertical(plugin, root, data, ctx, owner, fmt, pending) {
     }
     cols.style.width = `${Math.max(colEnds.length * 12, 4)}px`;
   };
-  Promise.all(pending).then(() => later(owner, () => { lastWidth = -1; layout(); }));
+  Promise.all(pending).then(() => later(owner, () => {
+    lastWidth = -1; layout();
+    // images in descriptions change a label's height after the first layout
+    for (const img of labelsEl.querySelectorAll('img')) {
+      if (!img.complete) owner.registerDomEvent(img, 'load', () => { lastWidth = -1; layout(); });
+    }
+  }));
   observe(labelsEl, layout, owner);
   return outer;
 }
@@ -1189,15 +1198,18 @@ function renderWarnings(root, warnings, fmt) {
 
 /* ── note view: timed headings in reading view ─────── */
 
-// "2026-10-21 23:52", "2026-10-22T00:02:16.69+09:00", "(2026-10-22 00:23 JST)" anywhere, or "09:30" at the start.
-// The time is shown as written; offsets are not converted.
-const NV_DATETIME = /[(（]?\s*(\d{4})-(\d{2})-(\d{2})[T ](\d{1,2}):(\d{2})(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?(?:\s*(?:JST|UTC|GMT))?\s*[)）]?/;
-const NV_TIME = /^(\d{1,2}):(\d{2})(?::\d{2})?(?:\s*(?:JST|UTC|GMT))?(?=\s|$)/;
-const NV_EDGE = /^[\s\-–—:：|・,、]+|[\s\-–—:：|・,、]+$/g;
+// "2026-10-21 23:52", "2026/10/21 9:30", "2026-10-22T00:02:16.69+09:00", "(2026-10-22 00:23 JST)" anywhere,
+// or "09:30" at the start. The time is shown as written; offsets are not converted.
+const NV_DATETIME = /[(（]?\s*(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})[T ](\d{1,2}):(\d{2})(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?(?:\s*(?:JST|UTC|GMT))?\s*[)）]?/;
+const NV_TIME = /^(\d{1,2}):(\d{2})(?::\d{2})?(?:\s*(?:JST|UTC|GMT))?(?=[\s:：|｜\-–—・,、]|$)/;
+const NV_EDGE = /^[\s\-–—:：|｜・,、*_]+|[\s\-–—:：|｜・,、*_]+$/g;
+// a date alone, at the start or in parentheses at the end: "2026-10-21 Title", "Title (2026-10-21)"
+const NV_DATE = /^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})(?=[\s:：|｜\-–—・,、]|$)|[(（]\s*(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})\s*[)）]\s*$/;
+const nvOk = (h, mi, mo, d) => +h < 24 && +mi < 60 && (mo == null || (+mo >= 1 && +mo <= 12 && +d >= 1 && +d <= 31));
 
 function noteHeadingTime(text) {
   let m = text.match(NV_DATETIME);
-  if (m && +m[4] < 24) {
+  if (m && nvOk(m[4], m[5], m[2], m[3])) {
     return {
       date: { year: +m[1], month: +m[2], day: +m[3] },
       time: `${m[4].padStart(2, '0')}:${m[5]}`,
@@ -1206,17 +1218,27 @@ function noteHeadingTime(text) {
     };
   }
   m = text.match(NV_TIME);
-  if (m && +m[1] < 24) {
+  if (m && nvOk(m[1], m[2])) {
     return { date: null, time: `${m[1].padStart(2, '0')}:${m[2]}`, match: m[0], title: text.slice(m[0].length).replace(NV_EDGE, '').trim() };
+  }
+  m = text.match(NV_DATE);
+  if (m) {
+    const [y, mo, d] = m[1] ? [m[1], m[2], m[3]] : [m[4], m[5], m[6]];
+    if (nvOk(0, 0, mo, d)) {
+      return { date: { year: +y, month: +mo, day: +d }, time: null, match: m[0],
+        title: text.replace(m[0], ' ').replace(NV_EDGE, '').trim() };
+    }
   }
   return null;
 }
 
 // headings of a note (outside front matter and code fences), with their parsed times
-function noteIndex(text, level) {
-  const lines = text.split('\n');
+// base: the date of the note itself (front matter `date` or a YYYY-MM-DD file name), used for time-only headings
+function noteIndex(text, level, base) {
+  const lines = text.split('\n').map(l => l.replace(/\r$/, ''));
   const heads = [];
   let fence = null;
+  let comment = null;
   let i = 0;
   if (lines[0] === '---') {
     for (i = 1; i < lines.length && lines[i] !== '---' && lines[i] !== '...'; i++);
@@ -1231,19 +1253,44 @@ function noteIndex(text, level) {
       continue;
     }
     if (fence) continue;
-    const h = line.match(/^(#{1,6})\s+(.*?)\s*#*\s*$/);
+    // headings inside <!-- --> or %% %% comments are not shown, so they do not start entries
+    if (comment) { if (line.includes(comment)) comment = null; continue; }
+    const open = line.match(/^\s*(<!--|%%)/);
+    if (open) { const end = open[1] === '%%' ? '%%' : '-->'; if (!line.slice(line.indexOf(open[1]) + open[1].length).includes(end)) comment = end; continue; }
+    const h = line.match(/^ {0,3}(#{1,6})\s+(.*?)\s*#*\s*$/);
     if (!h) continue;
     const lv = h[1].length;
     heads.push({ line: i, level: lv, time: lv === level ? noteHeadingTime(h[2]) : null });
   }
+  // a time-only heading takes the date of the dated heading above it, else the note's own date
+  let last = base || null;
+  for (const h of heads) {
+    if (!h.time) continue;
+    if (h.time.date) last = h.time.date;
+    else if (last) { h.time.date = last; h.time.implied = true; }
+  }
   return { lines, heads };
 }
 
+function noteBaseDate(path, fm) {
+  const v = fm && fm.date;
+  const m = String(v instanceof Date ? v.toISOString() : v || '').match(/^(\d{4})-(\d{2})-(\d{2})/)
+    || (path || '').split('/').pop().match(/(\d{4})-(\d{2})-(\d{2})/);
+  return m && nvOk(0, 0, m[2], m[3]) ? { year: +m[1], month: +m[2], day: +m[3] } : null;
+}
+
+// one folder per line, optionally followed by a color: "Projects/*/Worklog #green". Returns path → { color } | null
 function folderMatcher(spec) {
-  const pats = (spec || '').split('\n').map(x => x.trim().replace(/^\/+|\/+$/g, '')).filter(Boolean);
-  const res = pats.map(p => new RegExp('^' + p.split('/').map(seg => seg === '**' ? '.*'
-    : seg.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '[^/]*')).join('/') + '(/|$)'));
-  return path => res.some(r => r.test(path));
+  const rules = (spec || '').split('\n').map(x => x.trim()).filter(Boolean).map(line => {
+    const c = line.match(/\s+#(\w+)$/);
+    const color = c && COLORS.includes(c[1].toLowerCase()) ? c[1].toLowerCase() : null;
+    const p = (color ? line.slice(0, c.index) : line).trim().replace(/^\/+|\/+$/g, '').replace(/(^|\/)\*\*$/, '') || '**';
+    // "**" is any number of folders, including none
+    const re = new RegExp('^' + p.split('/').map(seg => seg === '**' ? '(?:[^/]+/)*'
+      : seg.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '[^/]*') + '/').join('').replace(/\/$/, '') + '(/|$)');
+    return { re, color };
+  }).filter(r => r.re.source !== '^(/|$)');
+  return path => { const r = rules.find(x => x.re.test(path)); return r ? { color: r.color } : null; };
 }
 
 class TimelineRender extends MarkdownRenderChild {}
@@ -1258,6 +1305,14 @@ class PlainTimelinePlugin extends Plugin {
     this.refreshNoteViewsSoon = debounce(() => this.refreshNoteViews(), 600, true);
     this.inNoteFolder = folderMatcher(this.settings.noteViewFolders);
     this.registerMarkdownPostProcessor((el, ctx) => this.noteView(el, ctx));
+    const redraw = new Map();
+    this.registerEvent(this.app.metadataCache.on('changed', file => {
+      clearTimeout(redraw.get(file.path));
+      redraw.set(file.path, setTimeout(() => { redraw.delete(file.path); this.noteChanged(file); }, 500));
+    }));
+    this.register(() => redraw.forEach(t => clearTimeout(t)));
+    this.registerEvent(this.app.vault.on('delete', f => this.noteCache.delete(f.path)));
+    this.registerEvent(this.app.vault.on('rename', (f, old) => this.noteCache.delete(old)));
     this.addSettingTab(new PlainTimelineSettingTab(this.app, this));
   }
 
@@ -1361,7 +1416,12 @@ class PlainTimelinePlugin extends Plugin {
         && /^(`{3,}|~{3,})\s*$/.test(close.replace(/\r$/, ''))
         && inner.join('\n').replace(/\r/g, '').trim() === source.replace(/\r/g, '').trim();
       if (!same) return text;
+      // drop only real option lines: an indented line under an item is part of its description, even if it starts with ">"
+      let inItem = false;
       const body = inner.filter(line => {
+        if (/^\s*[-@=*]\s*\[/.test(line)) { inItem = true; return true; }
+        if (inItem && /^\s/.test(line)) return true;
+        if (line.trim()) inItem = false;
         const m = line.match(OPTION_LINE);
         return !(m && (FLAG_KEYS.has(m[1]) || FLAG_KEYS.has(m[1].toLowerCase())));
       });
@@ -1376,21 +1436,26 @@ class PlainTimelinePlugin extends Plugin {
   }
 
   /* note view: each rendered block of a target note is styled as the time column + entry it belongs to */
-  noteViewOn(ctx) {
-    const fm = ctx.frontmatter && ctx.frontmatter[BLOCK];
-    if (fm === 'off' || fm === false) return false;
-    if (fm === 'notes' || fm === true) return true;
-    return this.inNoteFolder(ctx.sourcePath || '');
+  // → { color } when the note is shown as a timeline, else null
+  noteViewOn(path, frontmatter) {
+    const fm = frontmatter && frontmatter[BLOCK];
+    if (fm === 'off' || fm === false) return null;
+    return this.inNoteFolder(path || '') || (fm === 'notes' || fm === true ? { color: null } : null);
   }
 
   noteView(el, ctx) {
-    if (!this.noteViewOn(ctx)) return;
+    const target = this.noteViewOn(ctx.sourcePath, ctx.frontmatter);
+    if (!target) return;
     const info = ctx.getSectionInfo(el);
     if (!info) return; // embeds, exports
-    const level = this.settings.noteViewLevel;
+    // a note can pick its own entry level: `plain-timeline-heading: 3` (e.g. dated ### entries under a ## section)
+    const own = ctx.frontmatter && parseInt(ctx.frontmatter['plain-timeline-heading'], 10);
+    const level = own >= 1 && own <= 4 ? own : this.settings.noteViewLevel;
+    const base = noteBaseDate(ctx.sourcePath, ctx.frontmatter);
+    const baseKey = base ? `${base.year}-${base.month}-${base.day}` : '';
     let idx = this.noteCache.get(ctx.sourcePath);
-    if (!idx || idx.text !== info.text || idx.level !== level) {
-      idx = Object.assign(noteIndex(info.text, level), { text: info.text, level });
+    if (!idx || idx.text !== info.text || idx.level !== level || idx.baseKey !== baseKey) {
+      idx = Object.assign(noteIndex(info.text, level, base), { text: info.text, level, baseKey });
       this.noteCache.set(ctx.sourcePath, idx);
     }
     const { lines, heads } = idx;
@@ -1407,8 +1472,8 @@ class PlainTimelinePlugin extends Plugin {
     el.addClass('ptl-nv');
     // accent: the first period color (or mono), so the note view matches the timelines
     const s = this.settings;
-    const first = s.colorMode === 'mono' ? 'mono'
-      : (s.colorOrder.split(/[,\s]+/).map(c => c.trim().toLowerCase()).find(c => COLORS.includes(c)) || 'blue');
+    const first = s.colorMode === 'mono' ? 'mono' : (target.color
+      || s.colorOrder.split(/[,\s]+/).map(c => c.trim().toLowerCase()).find(c => COLORS.includes(c)) || 'blue');
     el.addClass(`ptl-c-${first}`);
     if (owner.line === info.lineStart) {
       el.addClass('ptl-nv-head');
@@ -1420,15 +1485,31 @@ class PlainTimelinePlugin extends Plugin {
       for (let n = walker.nextNode(); n; n = walker.nextNode()) {
         if (n.nodeValue.includes(owner.time.match)) {
           n.nodeValue = n.nodeValue.replace(owner.time.match, ' ').replace(/[(（]\s*[)）]/g, '').replace(NV_EDGE, '');
+          // "**2026-10-21 23:52** Title" leaves an empty <strong>
+          const parent = n.parentElement;
+          if (!n.nodeValue.trim() && parent && parent !== h && !parent.textContent.trim()) parent.remove();
           break;
         }
       }
-      const prev = heads.filter(x => x.time && x.line < owner.line).pop();
+      const prev = heads.filter(x => x.time && x.time.date && x.line < owner.line).pop();
       const d = owner.time.date;
-      const newDay = d && (!prev || !prev.time.date || ['year', 'month', 'day'].some(k => prev.time.date[k] !== d[k]));
+      const fmt = new Formatter(this.settings);
+      const dayOnly = !owner.time.time;
+      const changed = keys => d && (!prev || keys.some(k => prev.time.date[k] !== d[k]));
       const col = createDiv({ cls: 'ptl-nv-when' });
-      if (newDay) col.createDiv({ cls: 'ptl-nv-date', text: new Formatter(this.settings).date(d) });
-      col.createSpan({ cls: 'ptl-nv-time', text: owner.time.time });
+      // above the slot: the full date where the day changes (the year only, for date-only entries)
+      const label = dayOnly ? (changed(['year']) ? fmt.year(d.year) : '') : (changed(['year', 'month', 'day']) ? fmt.date(d) : '');
+      if (label) col.createDiv({ cls: 'ptl-nv-date', text: label }).setAttr('title', fmt.date(d));
+      const slot = dayOnly ? (fmt.lang === 'ja' ? `${d.month}月${d.day}日` : `${fmt.monthName(d.month)} ${d.day}`) : owner.time.time;
+      // the time opens the note for editing at this heading
+      const time = col.createSpan({ cls: 'ptl-nv-time', text: slot });
+      time.setAttr('role', 'link');
+      time.setAttr('tabindex', '0');
+      time.setAttr('aria-label', this.fmtT().editHere);
+      const go = () => this.app.workspace.openLinkText('', ctx.sourcePath, false,
+        { state: { mode: 'source' }, eState: { line: owner.line } });
+      time.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); go(); });
+      time.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
       const fold = h.querySelector('.heading-collapse-indicator');
       if (fold) fold.after(col); else h.prepend(col);
       return;
@@ -1436,6 +1517,17 @@ class PlainTimelinePlugin extends Plugin {
     el.addClass('ptl-nv-body');
     el.toggleClass('ptl-nv-first', blank(owner.line + 1, info.lineStart));
     el.toggleClass('ptl-nv-last', blank(info.lineEnd + 1, end));
+  }
+
+  fmtT() { return STRINGS[resolveLang(this.settings.language)]; }
+
+  // a section rendered alone after an edit cannot fix its neighbours' first/last/date marks: redraw the whole view
+  noteChanged(file) {
+    if (!file || !this.noteViewOn(file.path, (this.app.metadataCache.getFileCache(file) || {}).frontmatter)) return;
+    this.app.workspace.getLeavesOfType('markdown').forEach(leaf => {
+      const v = leaf.view;
+      if (v && v.file === file && v.getMode && v.getMode() === 'preview' && v.previewMode) v.previewMode.rerender(true);
+    });
   }
 
   refreshNoteViews() {
@@ -1449,6 +1541,7 @@ class PlainTimelinePlugin extends Plugin {
 
   async saveSettings() {
     await this.saveData(this.settings);
+    if (this.refreshNoteViewsSoon) this.refreshNoteViewsSoon(); // language, date format and colors show there too
     // re-render the timelines on screen (reading view, Live Preview, embeds) with the new settings
     for (const entry of [...this.rendered]) {
       if (entry.el.isConnected) this.render(entry.source, entry.el, entry.ctx);

@@ -91,7 +91,9 @@ The scale look picks calendar steps — days, weeks, months or years — to fit 
 
 A log written as headings can be read as a timeline too. List folders under **Settings → Note view** (for example `Projects/*/Worklog`; `*` is one folder name, `**` any depth). In reading view, notes inside them show every `##` heading that starts with a time — `## 2026-10-21 23:52 Kick-off`, `## 09:30 Stand-up`, or a time in parentheses such as `## Review (2026-10-22T00:23+09:00)` — with the time in a column on the left, the title beside it, and the section below as one card on a line. The date is shown where it changes. Headings without a time stay as they are. The note itself is not changed, and editing works as usual.
 
-A single note can opt in or out with `plain-timeline: notes` or `plain-timeline: off` in its properties. The heading level can be changed in the settings.
+A heading with only a date (`### 2026-10-21 Release`, or `Release (2026-10-21)`) is an entry for that day, shown with the day in the time column. A heading with only a time (`## 09:30 Stand-up`) takes its date from the dated heading above it, or else from the note's `date` property or a `YYYY-MM-DD` file name, so a daily note becomes a dated timeline as it is. Dates may also be written `2026/10/21`. Times are shown as written; time zones such as `+09:00` or `JST` are not converted. Click a time (or press Enter on it) to edit the note at that entry.
+
+A single note can opt in or out with `plain-timeline: notes` or `plain-timeline: off` in its properties. Add a color after a folder (`Projects/*/Worklog #green`) to tint its notes; otherwise the first period color is used. The heading level can be changed in the settings, or for one note with `plain-timeline-heading: 3` in its properties.
 
 ## Mobile
 
