@@ -230,6 +230,7 @@
 .ptl-nv {
   --ptl-nv-col: 100px;
   --ptl-nv-gap: 16px;
+  --ptl-nv-inset: 14px;  /* space between the line and the card */
   --ptl-line: var(--background-modifier-border-hover, var(--background-modifier-border));
   position: relative;
   display: flow-root;
@@ -243,13 +244,17 @@
 .ptl-nv-when {
   position: absolute;
   left: 0;
+  top: 0;
   bottom: 0;
+  z-index: 1;
   width: var(--ptl-nv-col);
+  justify-content: center;  /* centered against a title that wraps */
   display: flex;
   flex-direction: column;
   align-items: center;
 }
 .ptl-nv-date {
+  background: var(--background-primary);
   font-size: var(--font-ui-smaller);
   font-weight: var(--font-normal);
   color: var(--text-muted);
@@ -261,21 +266,24 @@
   padding: 0 0.15em 0.1em;
   border-bottom: 2px solid var(--ptl-c, var(--text-muted));
   white-space: nowrap;
+  background: var(--background-primary);
 }
-.ptl-nv-head.ptl-nv-open::after,
+.ptl-nv-head.ptl-nv-open > :is(h1, h2, h3, h4)::after,
 .ptl-nv-body::before {
   content: "";
   position: absolute;
   left: calc(var(--ptl-nv-col) / 2);
   border-left: 2px solid var(--ptl-c, var(--text-muted));
 }
-.ptl-nv-head.ptl-nv-open::after { top: calc(100% - 0.4em); height: 1em; left: calc(var(--ptl-nv-col) / 2 - 1px); }
-.ptl-nv-body::before { top: 0; bottom: 0; left: calc(-1 * (var(--ptl-nv-gap) + var(--ptl-nv-col) / 2) - 1px); }
+/* starts at the middle of the heading, behind the time (hidden by its background),
+   so it leaves from under the underline at any title height */
+.ptl-nv-head.ptl-nv-open > :is(h1, h2, h3, h4)::after { top: 50%; bottom: -0.4em; left: calc(var(--ptl-nv-col) / 2 - 1px); }
+.ptl-nv-body::before { top: 0; bottom: 0; left: calc(-1 * var(--ptl-nv-inset) - 1px); }
 .ptl-nv-body.ptl-nv-last::before { bottom: 0.4em; }
 .ptl-nv-body.ptl-nv-first::before { top: -0.6em; }
 /* the entry's content: one card, tinted like a period bar */
 .ptl-nv-body {
-  margin-left: calc(var(--ptl-nv-col) + var(--ptl-nv-gap));
+  margin-left: calc(var(--ptl-nv-col) / 2 + var(--ptl-nv-inset));
   padding: 0 1em;
   background: var(--background-modifier-hover);
 }
