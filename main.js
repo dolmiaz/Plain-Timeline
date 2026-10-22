@@ -29,6 +29,7 @@ const DEFAULT_SETTINGS = {
   language: 'auto',               // auto | en | ja
   defaultOrientation: 'vertical', // vertical | horizontal
   defaultLook: 'auto',            // auto | cards | scale  (auto: vertical → cards, horizontal → scale)
+  defaultAxis: 'auto',            // auto | linear | log | logstart | fit — how the scale look spreads time
   inputOrder: 'ymd',              // ymd | dmy | mdy  (order of date parts as written in blocks)
   twoDigitPivot: 49,              // two-digit years: 00–49 → 2000s, 50–99 → 1900s
   dateFormat: 'localized',        // localized | iso | custom
@@ -60,6 +61,9 @@ const STRINGS = {
     present: 'present', today: 'Today',
     months: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
     warnTitle: n => `${n} note${n > 1 ? 's' : ''} about this timeline`,
+    axisNames: { auto: 'Auto', linear: 'Proportional', log: 'More room for recent', logstart: 'More room for the start', fit: 'Even spacing' },
+    axisLabel: 'Time axis',
+    axisNote: (mode, auto) => `Time axis: ${{ log: 'more room for recent times (logarithmic, time before the last item)', logstart: 'more room for the start (logarithmic, time since the first item)', fit: 'even spacing between dates (lengths are not to scale)', linear: 'proportional, with zoomed spans' }[mode]}${auto ? ' — chosen automatically' : ''}`,
     why: {
       date: 'unreadable date', syntax: 'not a timeline line', order: 'end is before start (swapped)',
       option: 'unknown option', value: 'unreadable option value', range: 'outside the start/end range (shown at the edge)',
@@ -93,6 +97,7 @@ const STRINGS = {
       density: ['Density', 'Spacing between items. Can be overridden per block with "> density compact".'], dComfortable: 'Comfortable', dCompact: 'Compact',
       sort: ['Order', 'Order of items in a timeline.'], sortChrono: 'Chronological', sortWritten: 'As written',
       minWidth: ['Horizontal minimum width', 'Minimum width (px) of the horizontal axis before it scrolls.'],
+      axis: ['Time axis', 'How the scale look spreads time. Auto keeps it proportional when the dates are spread out, and otherwise gives recent times more room or spaces the dates evenly. A block can choose its own with "> axis …".'],
       warnings: ['Show notes about unreadable lines', 'List lines that could not be read (or were adjusted) under the timeline.'],
       noteView: 'Note view',
       noteFolders: ['Folders', 'Notes in these folders show headings that start with a time (e.g. "## 2026-10-21 23:52 Title" or "## 09:30 Title") as a timeline in reading view. One folder per line; * matches one folder name, ** any depth (e.g. Projects/*/Worklog). Add a color at the end to tint that folder (e.g. Projects/*/Worklog #green). A note can opt in or out with "plain-timeline: notes" or "plain-timeline: off" in its properties.'],
@@ -108,6 +113,9 @@ const STRINGS = {
     present: '現在', today: '今日',
     months: null,
     warnTitle: n => `この年表について${n}件のお知らせ`,
+    axisNames: { auto: '自動', linear: '比例', log: '最近を広く', logstart: '始まりを広く', fit: '均等' },
+    axisLabel: '縮尺',
+    axisNote: (mode, auto) => `縮尺: ${{ log: '最近を広く(最後の項目から何年前の対数)', logstart: '始まりを広く(最初の項目から何年後の対数)', fit: '均等(日付の間をそろえる。長さは時間に比例しません)', linear: '比例(一部を拡大)' }[mode]}${auto ? '・自動で選択' : ''}`,
     why: {
       date: '日付が読めない', syntax: '年表の行の形ではない', order: '終わりが始まりより前(入れ替えた)',
       option: '知らない指定', value: '指定の値が読めない', range: '開始・終了の範囲外(端に表示)',
@@ -141,6 +149,7 @@ const STRINGS = {
       density: ['間隔', '項目同士の間隔。ブロックごとに「> 間隔 詰める」で変えられる。'], dComfortable: 'ゆったり', dCompact: '詰める',
       sort: ['並び順', '年表の中の並び。'], sortChrono: '日付順', sortWritten: '書いた順',
       minWidth: ['横の最小幅', '横の時間軸がスクロールに切り替わる最小の幅(px)。'],
+      axis: ['時間軸の縮尺', '時間軸の見た目で、時間をどう並べるか。自動は、日付がほどよく散らばっていれば比例、そうでなければ最近を広くするか均等に並べる。ブロックごとに「> 縮尺 …」で変えられる。'],
       warnings: ['読めない行のお知らせを表示', '読めなかった行や調整した行を年表の下に出す。'],
       noteView: 'ノート表示',
       noteFolders: ['フォルダ', 'ここに書いたフォルダの中のノートは、時刻で始まる見出し(「## 2026-10-21 23:52 タイトル」「## 09:30 タイトル」など)を閲覧モードで時系列に並べて表示する。1行に1フォルダ。* はフォルダ名1つ、** は任意の深さに当たる(例 Projects/*/Worklog)。末尾に色を書くとそのフォルダの色になる(例 Projects/*/Worklog #green)。ノートのプロパティに「plain-timeline: notes」「plain-timeline: off」と書くと、そのノートだけ対象に入れる・外すことができる。'],
@@ -276,7 +285,7 @@ function normalizeHead(line) {
 }
 
 const OPTION_LINE = /^\s*>\s*(\S+)/;
-const FLAG_KEYS = new Set(['orientation', '向き', 'look', '見た目', 'style']);
+const FLAG_KEYS = new Set(['orientation', '向き', 'look', '見た目', 'style', 'axis', '軸', '縮尺']);
 const OPTION_ALIASES = {
   orientation: 'orientation', 向き: 'orientation',
   look: 'look', 見た目: 'look',
@@ -289,8 +298,19 @@ const OPTION_ALIASES = {
   desc: 'desc', 説明: 'desc',
   height: 'height', 高さ: 'height',
   orderby: 'orderby',
+  unit: 'unit', 単位: 'unit',
+  axis: 'axis', 軸: 'axis', 縮尺: 'axis',
+  zoom: 'zoom', 拡大: 'zoom', 広げる: 'zoom',
 };
-const JA_KEYS = new Set(['向き', '見た目', 'タイトル', '開始', '終了', '今日', '間隔', '説明', '高さ']);
+const JA_KEYS = new Set(['向き', '見た目', 'タイトル', '開始', '終了', '今日', '間隔', '説明', '高さ', '単位', '軸', '縮尺', '拡大', '広げる']);
+// "> unit Ma": dates are written and shown as millions (ka: thousands) of years before present (1950)
+const UNITS = { ga: 1e9, ma: 1e6, ka: 1e3 };
+const UNIT_WORDS = { ga: ['ga', 'gya', '十億年前', 'billion'], ma: ['ma', 'mya', '百万年前', 'million'], ka: ['ka', 'kya', '千年前', 'thousand'] };
+function unitDate(text, mult) {
+  const t = String(text).trim().replace(/\s*(ga|ma|ka)$/i, '');
+  if (!/^\d+(\.\d+)?$/.test(t)) return null;
+  return makeDate(1950 - Math.round(parseFloat(t) * mult), 0, 0);
+}
 
 function pick(value, table) {
   const v = (value || '').trim().toLowerCase();
@@ -307,6 +327,12 @@ function parseBlock(source, sortOrder, dateOpts) {
   // items made by the last item line; indented lines below it continue their description
   let group = null;
   let blank = false;
+  // the unit decides how every date is read, so find it before the items
+  const unitLine = source.split('\n').map(l => l.trim().match(/^>\s*(unit|単位)\s+(.+)$/i)).find(Boolean);
+  const unitKey = unitLine ? pick(unitLine[2].replace(/\s+years?\s+ago$/i, ''), UNIT_WORDS) : null;
+  const mult = UNITS[unitKey] || 0;
+  const readDate = text => (mult ? unitDate(text, mult) : parseDate(text, dateOpts));
+  const zooms = [];
   source.split('\n').forEach((raw, index) => {
     const lineNo = index + 1;
     const line = normalizeHead(raw.trim());
@@ -327,6 +353,15 @@ function parseBlock(source, sortOrder, dateOpts) {
       const key = OPTION_ALIASES[keyRaw] || OPTION_ALIASES[keyRaw.toLowerCase()];
       if (!key) { warnings.push({ lineNo, text: raw.trim(), why: 'option' }); return; }
       if (!optionLang && key !== 'style') optionLang = JA_KEYS.has(keyRaw) ? 'ja' : 'en';
+      if (key === 'zoom') {
+        // "> zoom 1939~1945 5": draw that span five times wider (several lines allowed)
+        const zm = value.join(' ').match(/^(.+?)[~〜～](.+?)\s+[x×]?\s*(\d+(?:\.\d+)?)\s*(?:x|×|倍)?$/i);
+        const za = zm && readDate(zm[1]);
+        const zb = zm && readDate(zm[2]);
+        if (!za || !zb || !(+zm[3] > 0)) warnings.push({ lineNo, text: raw.trim(), why: 'value' });
+        else zooms.push({ a: Math.min(za.value, zb.value), b: Math.max(za.value, zb.value), f: +zm[3] });
+        return;
+      }
       options[key] = value.join(' ').trim();
       optionLine[key] = { lineNo, text: raw.trim() };
       return;
@@ -352,12 +387,12 @@ function parseBlock(source, sortOrder, dateOpts) {
       const a = tilde >= 0 ? dates.slice(0, tilde) : dates;
       let b = tilde >= 0 ? dates.slice(tilde + 1) : null;
       if (kind === 'marker' && b != null) { warnings.push({ lineNo, text: raw.trim(), why: 'marker' }); b = null; }
-      let start = parseDate(a, dateOpts);
+      let start = readDate(a);
       let end = null;
       let openEnd = false;
       if (b != null) {
         if (!b.trim()) { openEnd = true; end = today(); }
-        else end = parseDate(b, dateOpts);
+        else end = readDate(b);
       }
       if (!start || (b != null && !openEnd && !end)) { warnings.push({ lineNo, text: raw.trim(), why: 'date' }); continue; }
       if (Math.abs(start.year) > MAX_YEAR || (end && Math.abs(end.year) > MAX_YEAR)) { warnings.push({ lineNo, text: raw.trim(), why: 'huge' }); continue; }
@@ -371,7 +406,8 @@ function parseBlock(source, sortOrder, dateOpts) {
     }
     if (!group.length) group = null;
   });
-  if (sortOrder !== 'written') items.sort((x, y) => x.start.value - y.start.value);
+  // same start: the longer item first, so nested divisions (eon, era, period) stack from long to short
+  if (sortOrder !== 'written') items.sort((x, y) => x.start.value - y.start.value || (y.end || y.start).value - (x.end || x.start).value);
 
   // option values: anything unreadable is reported instead of silently ignored
   const bad = key => warnings.push({ lineNo: optionLine[key].lineNo, text: optionLine[key].text, why: 'value' });
@@ -392,11 +428,19 @@ function parseBlock(source, sortOrder, dateOpts) {
   const range = { start: null, end: null };
   for (const key of ['start', 'end']) {
     if (!(key in options)) continue;
-    range[key] = parseDate(options[key], dateOpts);
+    range[key] = readDate(options[key]);
     if (range[key] && Math.abs(range[key].year) > MAX_YEAR) range[key] = null;
     if (!range[key]) bad(key);
   }
   if (range.start && range.end && range.end.value < range.start.value) [range.start, range.end] = [range.end, range.start];
+  if ('unit' in options && !mult) bad('unit');
+  const axis = read('axis', {
+    auto: ['auto', '自動'],
+    linear: ['proportional', 'linear', 'true', '比例', 'そのまま'],
+    log: ['recent', 'log', 'logarithmic', '最近を広く', '最近', '対数'],
+    logstart: ['early', 'start', 'log-start', 'since', '始まりを広く', '始まり', '始まりから'],
+    fit: ['even', 'fit', 'segments', '均等', '区切り'],
+  });
   let height = 0;
   if ('height' in options) {
     height = parseInt(options.height, 10) || 0;
@@ -413,6 +457,7 @@ function parseBlock(source, sortOrder, dateOpts) {
   warnings.sort((a, b) => a.lineNo - b.lineNo);
   return {
     items, options, warnings, orientation, look, density, desc, range, height, optionLang,
+    unit: mult ? unitKey : null, unitMult: mult, axis, axisMode: axis || 'auto', zooms,
     title: options.title || '',
     today: 'today' in options,
   };
@@ -434,6 +479,10 @@ class Formatter {
     return this.lang === 'ja' ? `${m}月` : this.t.months[m - 1];
   }
   year(y) {
+    if (this.unitMult) {
+      const n = (1950 - y) / this.unitMult;
+      return `${+n.toFixed(n < 10 ? 3 : n < 1000 ? 2 : 0)} ${{ ga: 'Ga', ma: 'Ma', ka: 'ka' }[this.unit]}`;
+    }
     if (y >= 0) return this.lang === 'ja' && !this.iso ? `${group3(y)}年` : group3(y);
     const n = group3(-y);
     switch (this.bce) {
@@ -498,6 +547,7 @@ class Formatter {
   }
   date(d) {
     const pad = n => String(n).padStart(2, '0');
+    if (this.unitMult) return this.year(d.year);
     if (this.custom) return this.customDate(d);
     if (this.iso) {
       // ISO-like: negative years keep their sign (-0490-07-14)
@@ -587,6 +637,155 @@ function buildTicks(min, max, count) {
   return { min: lo, max: hi, ticks };
 }
 
+// "n years ago" for the log axis
+function agoLabel(n, fmt) {
+  if (fmt.unitMult) return fmt.year(1950 - n);
+  const num = (v, d) => String(+(v / d).toPrecision(3));
+  if (fmt.lang === 'ja') {
+    if (n >= 1e8) return `${num(n, 1e8)}億年前`;
+    if (n >= 1e4) return `${num(n, 1e4)}万年前`;
+    return `${num(n, 1)}年前`;
+  }
+  if (n >= 1e9) return `${num(n, 1e9)} billion years ago`;
+  if (n >= 1e6) return `${num(n, 1e6)} million years ago`;
+  return `${group3(+n.toPrecision(3))} years ago`;
+}
+
+// "n years after the first item" for the log-from-the-start axis
+function afterLabel(n, fmt) {
+  const num = (v, d) => String(+(v / d).toPrecision(3));
+  if (fmt.lang === 'ja') {
+    if (n >= 1e8) return `${num(n, 1e8)}億年後`;
+    if (n >= 1e4) return `${num(n, 1e4)}万年後`;
+    if (n >= 1) return `${num(n, 1)}年後`;
+    return `${+(n * 365).toPrecision(2)}日後`;
+  }
+  if (n >= 1e9) return `+${num(n, 1e9)} billion years`;
+  if (n >= 1e6) return `+${num(n, 1e6)} million years`;
+  if (n >= 1) return `+${group3(+n.toPrecision(3))} years`;
+  return `+${+(n * 365).toPrecision(2)} days`;
+}
+
+// "auto": keep the proportional axis when the dates are reasonably spread; otherwise pick the logarithmic
+// axis when it spreads them, else the fitted one. "Time since the first item" is never picked: which end
+// deserves room is the writer's call. Zoomed spans mean the writer chose the proportional axis.
+function resolveAxis(data) {
+  if (data.axisMode !== 'auto') return data.axisMode;
+  if ((data.zooms || []).length) return 'linear';
+  const vals = [...new Set(data.items.flatMap(it => [it.start.value, (it.end || it.start).value]))].sort((a, b) => a - b);
+  if (vals.length < 4) return 'linear';
+  const spread = f => {
+    const xs = vals.map(f);
+    const len = xs[xs.length - 1] - xs[0];
+    if (!(len > 0)) return 0;
+    let ok = 0;
+    for (let i = 1; i < xs.length; i++) if ((xs[i] - xs[i - 1]) / len >= 0.006) ok++;
+    return ok / (xs.length - 1);
+  };
+  const lin = spread(v => v);
+  // a period shorter than 0.5% of the whole would be a sliver on a proportional axis
+  const whole = vals[vals.length - 1] - vals[0];
+  const sliver = data.items.some(it => it.end && it.end.value - it.start.value < whole * 0.005);
+  if (lin >= 0.7 && !sliver) return 'linear';
+  const top = vals[vals.length - 1];
+  const ref = top + Math.max((top - vals[vals.length - 2]) / 2, (top - vals[0]) * 1e-9, 1 / 365);
+  const log = spread(v => -Math.log10(ref - v));
+  return log >= 0.7 && log > lin ? 'log' : 'fit';
+}
+
+// The time axis: where each moment sits (x), the drawn range and the labelled ticks.
+// linear: proportional to time, with optional "> zoom" spans drawn wider;
+// fit: every gap between item dates gets readable room, long gaps are squeezed (order kept);
+// log: logarithmic in "time before the last item", for spans like the history of the universe.
+function makeAxis(data, raw, fixed, width, fmt, vertical = false) {
+  const mode = resolveAxis(data);
+  const vals = [...new Set(data.items.flatMap(it => [it.start.value, (it.end || it.start).value]))].sort((a, b) => a - b);
+  const dateOf = new Map();
+  for (const it of data.items) { dateOf.set(it.start.value, it.start); if (it.end) dateOf.set(it.end.value, it.end); }
+  const spaced = list => {
+    // keep a label only when it clears the previous one (the vertical axis spaces its own ticks)
+    if (vertical) return list;
+    const out = [];
+    let lastEnd = -Infinity;
+    for (const t of list.sort((a, b) => a.pos - b.pos)) {
+      const w = [...t.label].reduce((n, ch) => n + (/[\u3000-\u9fff\uff00-\uffef]/.test(ch) ? 12 : 7), 12);
+      if (t.pos - w / 2 >= lastEnd) { out.push(t); lastEnd = t.pos + w / 2; }
+    }
+    return out;
+  };
+  if (mode === 'log' && vals.length > 1) {
+    const top = vals[vals.length - 1];
+    const span = top - vals[0];
+    const ref = top + Math.max((top - vals[vals.length - 2]) / 2, span * 1e-9, 1 / 365);
+    const L = v => Math.log10(ref - v);
+    const lo = L(vals[0]);
+    const hi = L(top);
+    const x = v => ((lo - L(v)) / (lo - hi)) * width;
+    const ticks = [];
+    for (let k = Math.ceil(hi); k <= Math.floor(lo); k++) ticks.push({ value: ref - 10 ** k, pos: x(ref - 10 ** k), label: agoLabel(10 ** k, fmt) });
+    return { min: vals[0], max: top, x, width, ticks: spaced(ticks) };
+  }
+  if (mode === 'logstart' && vals.length > 1) {
+    // logarithmic in time since the first item: the first minutes and the last billion years on one line
+    const first = vals[0];
+    const span = vals[vals.length - 1] - first;
+    const base = first - Math.max((vals[1] - first) / 2, span * 1e-12, 1 / 365 / 24);
+    const L = v => Math.log10(v - base);
+    const lo = L(first);
+    const hi = L(vals[vals.length - 1]);
+    const x = v => ((L(v) - lo) / (hi - lo)) * width;
+    const ticks = [];
+    for (let k = Math.ceil(lo); k <= Math.floor(hi); k++) ticks.push({ value: base + 10 ** k, pos: x(base + 10 ** k), label: afterLabel(10 ** k, fmt) });
+    return { min: first, max: vals[vals.length - 1], x, width, ticks: spaced(ticks) };
+  }
+  let min;
+  let max;
+  let cuts;
+  let weight;
+  let lin = null;
+  if (mode === 'fit' && vals.length > 1) {
+    min = vals[0]; max = vals[vals.length - 1];
+    cuts = vals;
+    // room grows with the logarithm of a gap's length: a gap 1000× longer is only a few times wider
+    let gapMin = Infinity;
+    for (let i = 1; i < vals.length; i++) gapMin = Math.min(gapMin, vals[i] - vals[i - 1]);
+    weight = (a, b) => Math.log1p((b - a) / gapMin);
+  } else {
+    lin = buildTicks(raw.min, raw.max, Math.max(3, Math.round(width / 110)));
+    min = fixed && data.range.start ? raw.min : lin.min;
+    max = fixed && data.range.end ? raw.max : lin.max;
+    const zs = (data.zooms || []).filter(z => z.b > min && z.a < max);
+    cuts = [...new Set([min, max, ...zs.flatMap(z => [z.a, z.b]).filter(v => v > min && v < max)])].sort((a, b) => a - b);
+    weight = (a, b) => (b - a) * Math.max(1, ...zs.filter(z => z.a <= a && z.b >= b).map(z => z.f));
+  }
+  const segs = [];
+  for (let i = 0; i + 1 < cuts.length; i++) segs.push({ a: cuts[i], b: cuts[i + 1], w: weight(cuts[i], cuts[i + 1]) });
+  const total = segs.reduce((n, g) => n + g.w, 0) || 1;
+  const minSeg = mode === 'fit' ? 36 : 0;
+  const extra = Math.max(0, width - segs.length * minSeg);
+  let at = 0;
+  for (const g of segs) { g.x0 = at; g.px = minSeg + extra * g.w / total; at += g.px; }
+  const x = v => {
+    if (v <= min) return 0;
+    const g = segs.find(q => v <= q.b) || segs[segs.length - 1];
+    return g.x0 + (g.b > g.a ? (v - g.a) / (g.b - g.a) : 0) * g.px;
+  };
+  let ticks;
+  if (lin) {
+    // calendar ticks, chosen per span so a widened span gets more of them
+    const list = [];
+    for (const g of segs) {
+      const part = segs.length === 1 ? lin : buildTicks(g.a, g.b, Math.max(2, Math.round(g.px / 110)));
+      const inside = part.ticks.filter(t => t.value >= g.a - 1e-9 && t.value <= g.b + 1e-9);
+      tickLabels(inside, fmt).forEach((label, i) => list.push({ value: inside[i].value, pos: x(inside[i].value), label }));
+    }
+    ticks = spaced(list);
+  } else {
+    ticks = spaced(cuts.map(v => ({ value: v, pos: x(v), label: fmt.date(dateOf.get(v) || fromValue(v)) })));
+  }
+  return { min, max, x, width: at, ticks };
+}
+
 function tickLabels(ticks, fmt) {
   let lastYear = null;
   return ticks.map((t, i) => {
@@ -613,6 +812,16 @@ function dataRange(data) {
 }
 
 // where an item sits inside a fixed range; parts outside are folded to the edge
+// the narrowest a label can be without breaking a word (its longest word, plus padding)
+function minWordWidth(label) {
+  if (!label) return 0;
+  const keep = label.getAttribute('style') || '';
+  label.style.cssText = keep + ';width:min-content;white-space:normal;overflow-wrap:normal;word-break:normal;writing-mode:horizontal-tb';
+  const w = label.offsetWidth;
+  label.setAttribute('style', keep);
+  return w;
+}
+
 function clampItem(item, min, max) {
   const s = item.start.value;
   const e = (item.end || item.start).value;
@@ -886,14 +1095,15 @@ function renderScaleHorizontal(plugin, root, data, ctx, owner, fmt, pending) {
     else if (item.color) { color = item.color; el.addClass('has-color'); }
     if (color) el.addClass('ptl-c-' + color);
     if (item.openEnd) el.addClass('is-open');
-    pending.push(renderInline(plugin, el.createDiv({ cls: 'ptl-h-label' }), `${fmt.range(item)}  ${item.name}`, ctx.sourcePath, owner));
+    // a period shows only its name inside its bar (the axis gives the dates); text never runs past the bar's end
+    pending.push(renderInline(plugin, el.createDiv({ cls: 'ptl-h-label' }), isSpan ? item.name : `${fmt.range(item)}  ${item.name}`, ctx.sourcePath, owner));
     if (touch) el.addClass('ptl-tap-detail');
     const go = attachLink(plugin, el, item, ctx, fmt, owner, showDesc || touch);
     // descriptions: a floating note on hover (pointer), or the detail panel on tap (touch)
-    if (item.desc) {
-      el.addClass('has-desc');
-      attachTip(el, plainText(item.desc), owner);
-    }
+    if (item.desc) el.addClass('has-desc');
+    // the hover note carries what the bar leaves out: the dates (and the full name when it is cut)
+    const tip = isSpan ? `${fmt.range(item)}  ${plainText(item.name)}${item.desc ? '\n' + plainText(item.desc) : ''}` : plainText(item.desc || '');
+    if (tip) attachTip(el, tip, owner);
     if (touch) el.addEventListener('click', evt => {
       if (evt.target.closest('a')) return;
       canvas.querySelectorAll('.is-selected').forEach(n => n.removeClass('is-selected'));
@@ -903,10 +1113,11 @@ function renderScaleHorizontal(plugin, root, data, ctx, owner, fmt, pending) {
     placed.push({ item, el, isSpan, color, stem: isSpan ? null : above.createDiv({ cls: 'ptl-h-stem' }) });
   }
   // with "always show", list the descriptions under the axis, each tied to its item by a dot
-  if (showDesc && items.some(it => it.desc)) {
+  // periods are listed too: their bars show only names, so the dates are given here
+  if (showDesc && items.some(it => it.desc || it.end)) {
     const legend = root.createDiv({ cls: 'ptl-h-legend' });
     const listed = new Set(); // one line with several dates is listed once
-    for (const p of placed.filter(q => q.item.desc)) {
+    for (const p of placed.filter(q => q.item.desc || q.isSpan)) {
       const key = `${p.item.lineNo}\u0000${p.item.name}`;
       if (listed.has(key)) continue;
       listed.add(key);
@@ -915,7 +1126,9 @@ function renderScaleHorizontal(plugin, root, data, ctx, owner, fmt, pending) {
       const dot = name.createSpan({ cls: 'ptl-h-legend-dot' + (p.isSpan ? ' is-span' : '') });
       if (p.color) dot.addClass('ptl-c-' + p.color);
       name.createSpan({ text: plainText(p.item.name) });
-      pending.push(renderInline(plugin, row.createSpan({ cls: 'ptl-h-legend-desc' }), p.item.desc, ctx.sourcePath, owner));
+      const descEl = row.createSpan({ cls: 'ptl-h-legend-desc' });
+      if (p.isSpan) descEl.createSpan({ cls: 'ptl-h-legend-date', text: fmt.range(p.item) + (p.item.desc ? '  ' : '') });
+      if (p.item.desc) pending.push(renderInline(plugin, descEl.createSpan(), p.item.desc, ctx.sourcePath, owner));
     }
   }
 
@@ -923,23 +1136,32 @@ function renderScaleHorizontal(plugin, root, data, ctx, owner, fmt, pending) {
   const LANE = touch ? (compact ? 28 : 34) : (compact ? 22 : 26);
   const layout = () => {
     if (!outer.clientWidth) return; // hidden: wait for the next resize
-    const width = Math.max(outer.clientWidth - 40, Math.min(items.length * 46, 2400), plugin.settings.horizontalMinWidth);
-    // fewer ticks when their labels are long (huge years, day labels)
-    let axisInfo = buildTicks(raw.min, raw.max, Math.max(3, Math.round(width / 110)));
-    const longest = Math.max(...tickLabels(axisInfo.ticks, fmt).map(l => l.length));
-    const fit = Math.max(2, Math.floor(width / (longest * 7 + 24)));
-    if (fit < axisInfo.ticks.length - 1) axisInfo = buildTicks(raw.min, raw.max, fit);
-    const min = fixed && data.range.start ? raw.min : axisInfo.min;
-    const max = fixed && data.range.end ? raw.max : axisInfo.max;
-    const x = v => ((v - min) / (max - min)) * width;
+    const base = Math.max(outer.clientWidth - 40, Math.min(items.length * 46, 2400), plugin.settings.horizontalMinWidth);
+    let scale = makeAxis(data, raw, fixed, base, fmt);
+    // a period too short for the longest word of its name widens the whole axis (up to 4×, then it scrolls);
+    // whatever is still too short writes its name along the bar
+    let need = 1;
+    for (const p of placed) {
+      if (!p.isSpan) continue;
+      if (p.minW == null) p.minW = minWordWidth(p.el.querySelector('.ptl-h-label'));
+      const c = clampItem(p.item, scale.min, scale.max);
+      const bar = scale.x(c.e) - scale.x(c.s);
+      if (bar > 0) need = Math.max(need, p.minW / bar);
+    }
+    // the fit and log axes already make room, so they widen less
+    const cap = resolveAxis(data) === 'linear' ? 4 : 2;
+    if (need > 1.05) scale = makeAxis(data, raw, fixed, Math.min(base * need, base * cap, 8000), fmt);
+    const { min, max, x } = scale;
+    const width = scale.width;
     let right = width;
     const pack = (group, side) => {
       const laneEnds = [];
+      const gap = side === 'below' ? -1 : 6; // a period may start where the previous one ends
       const laneFor = from => {
-        const i = laneEnds.findIndex(end => end <= from - 6);
+        const i = laneEnds.findIndex(end => end <= from - gap);
         return i < 0 ? laneEnds.length : i;
       };
-      group.sort((a, b) => a.item.start.value - b.item.start.value);
+      group.sort((a, b) => a.item.start.value - b.item.start.value || (b.item.end || b.item.start).value - (a.item.end || a.item.start).value);
       for (const p of group) {
         const c = clampItem(p.item, min, max);
         p.el.toggleClass('is-cut-start', c.cutStart);
@@ -947,8 +1169,11 @@ function renderScaleHorizontal(plugin, root, data, ctx, owner, fmt, pending) {
         const left = x(c.s);
         const bar = p.isSpan ? Math.max(x(c.e) - left, 4) : 0;
         p.el.style.width = p.isSpan ? `${bar}px` : '';
+        // a bar narrower than a few letters writes its name along the bar (vertical): CJK upright, Latin turned 90°
+        if (p.isSpan) p.el.toggleClass('is-vertical', bar < p.minW);
         const labelW = p.el.querySelector('.ptl-h-label').scrollWidth + 14;
-        const need = Math.max(bar, labelW);
+        // periods take only their own length, so back-to-back periods (a trip's stays) share one row
+        const need = p.isSpan ? bar : labelW;
         p.el.toggleClass('is-overflow', p.isSpan && labelW > bar);
         // points hang their label to the left near the right edge, or when it keeps the stack lower
         const normalLane = laneFor(left);
@@ -963,28 +1188,34 @@ function renderScaleHorizontal(plugin, root, data, ctx, owner, fmt, pending) {
         p.el.toggleClass('is-flipped', flip);
         p.el.style.left = `${flip ? left - need + 5 : left}px`;
         if (flip) p.el.style.width = `${need}px`;
-        p.el.style[side === 'above' ? 'bottom' : 'top'] = `${lane * LANE + (side === 'above' ? 6 : 4)}px`;
+        p.lane = lane;
+        if (side === 'above') p.el.style.bottom = `${lane * LANE + 6}px`;
         if (p.stem) {
           p.stem.style.left = `${left}px`;
           p.stem.style.height = `${lane * LANE + 10}px`;
         }
       }
-      return laneEnds.length;
+      if (side === 'above') return laneEnds.length * LANE;
+      // periods wrap their name inside the bar and grow taller; each row is as tall as its tallest bar
+      const rows = laneEnds.map(() => LANE - 4);
+      for (const p of group) rows[p.lane] = Math.max(rows[p.lane], p.el.offsetHeight);
+      const tops = [];
+      rows.reduce((y, h, i) => { tops[i] = y; return y + h + 4; }, 4);
+      for (const p of group) p.el.style.top = `${tops[p.lane]}px`;
+      return rows.reduce((a, h) => a + h + 4, 0);
     };
-    const nAbove = pack(placed.filter(p => !p.isSpan), 'above');
-    const nBelow = pack(placed.filter(p => p.isSpan), 'below');
-    above.style.height = `${nAbove ? nAbove * LANE + 6 : 0}px`;
-    below.style.height = `${nBelow ? nBelow * LANE + 6 : 0}px`;
+    const hAbove = pack(placed.filter(p => !p.isSpan), 'above');
+    const hBelow = pack(placed.filter(p => p.isSpan), 'below');
+    above.style.height = `${hAbove ? hAbove + 6 : 0}px`;
+    below.style.height = `${hBelow ? hBelow + 6 : 0}px`;
     canvas.style.width = `${right + 16}px`;
 
     axis.empty();
-    const ticks = axisInfo.ticks.filter(t => t.value >= min - 1e-9 && t.value <= max + 1e-9);
-    const labels = tickLabels(ticks, fmt);
-    ticks.forEach((t, i) => {
+    for (const t of scale.ticks) {
       const tick = axis.createDiv({ cls: 'ptl-h-tick' });
-      tick.style.left = `${x(t.value)}px`;
-      tick.setText(labels[i]);
-    });
+      tick.style.left = `${t.pos}px`;
+      tick.setText(t.label);
+    }
   };
   Promise.all(pending).then(() => later(owner, layout));
   observe(outer, layout, owner);
@@ -1075,20 +1306,20 @@ function renderScaleVertical(plugin, root, data, ctx, owner, fmt, pending) {
     if (!width || width === lastWidth) return; // hidden, or nothing changed
     lastWidth = width;
     const heights = labels.map(l => Math.max(l.offsetHeight, 18) + GAP);
-    const axisInfo = buildTicks(raw.min, raw.max, Math.min(12, Math.max(4, Math.round(items.length * 1.2))));
-    const min = fixed && data.range.start ? raw.min : axisInfo.min;
-    const max = fixed && data.range.end ? raw.max : axisInfo.max;
-    const span = max - min || 1;
+    // the same axis as the horizontal scale (proportional, fit, log, zoomed), measured on a 0–1000 track
+    const scale = makeAxis(data, raw, fixed, 1000, fmt, true);
+    const { min, max } = scale;
+    const unit = v => scale.x(v) / 1000;
     // stretch the axis until consecutive labels fit at their true positions (capped)
     let H = Math.max(items.length * 28, 280);
     const order = items.map((it, i) => i).sort((a, b) => items[a].start.value - items[b].start.value);
     const pos = i => clampItem(items[i], min, max).s;
     for (let k = 0; k + 1 < order.length; k++) {
-      const dv = pos(order[k + 1]) - pos(order[k]);
-      if (dv > 0) H = Math.max(H, (heights[order[k]] * span) / dv);
+      const du = unit(pos(order[k + 1])) - unit(pos(order[k]));
+      if (du > 0) H = Math.max(H, heights[order[k]] / du);
     }
     H = Math.min(H, Math.max(480, heights.reduce((a, b) => a + b, 0) * 2.2));
-    const linear = v => ((v - min) / span) * H;
+    const linear = v => unit(v) * H;
     // place labels item by item (equal dates stack), then bend the axis to follow them
     const top = new Array(items.length);
     const anchors = [];
@@ -1121,13 +1352,16 @@ function renderScaleVertical(plugin, root, data, ctx, owner, fmt, pending) {
     });
 
     axis.empty();
-    const ticks = axisInfo.ticks.filter(t => t.value >= min - 1e-9 && t.value <= max + 1e-9);
-    const text = tickLabels(ticks, fmt);
-    ticks.forEach((t, i) => {
+    let lastTop = -Infinity;
+    for (const t of [...scale.ticks].sort((p, q) => p.value - q.value)) {
+      if (t.value < min - 1e-9 || t.value > max + 1e-9) continue;
+      const top = y(t.value);
+      if (top - lastTop < 18) continue; // keep tick labels apart
+      lastTop = top;
       const tick = axis.createDiv({ cls: 'ptl-sv-tick' });
-      tick.style.top = `${y(t.value)}px`;
-      tick.setText(text[i]);
-    });
+      tick.style.top = `${top}px`;
+      tick.setText(t.label);
+    }
     const widest = Math.max(0, ...[...axis.children].map(n => n.scrollWidth));
     canvas.style.gridTemplateColumns = `${Math.max(widest + 14, 36)}px auto minmax(0, 1fr)`;
 
@@ -1330,6 +1564,12 @@ class PlainTimelinePlugin extends Plugin {
     const base = this.settings;
     const fmt = new Formatter(base);
     const data = parseBlock(source, base.sortOrder, { order: base.inputOrder, pivot: base.twoDigitPivot });
+    fmt.unit = data.unit;
+    fmt.unitMult = data.unitMult;
+    // the block's own axis, else the one picked in the switch (unsaved), else the global default
+    if (override && override.axis) data.axis = override.axis;
+    if (!data.axis) data.axisMode = base.defaultAxis || 'auto';
+    else data.axisMode = data.axis;
     if (data.today) {
       data.items.push({ kind: 'marker', start: today(), end: null, name: fmt.t.today, desc: '', color: 'red', lineNo: 0, text: '' });
       if (base.sortOrder !== 'written') data.items.sort((a, b) => a.start.value - b.start.value);
@@ -1365,8 +1605,8 @@ class PlainTimelinePlugin extends Plugin {
             btn.onclick = async () => {
               if (value === current) return;
               const next = key === 'orientation'
-                ? { orientation: value, look: data.look ? look : defaultLookFor(value) }
-                : { orientation, look: value };
+                ? { orientation: value, look: data.look ? look : defaultLookFor(value), axis: data.axis }
+                : { orientation, look: value, axis: data.axis };
               const saved = await this.setFlags(el, ctx, source, next, data.optionLang || fmt.lang);
               if (!saved) this.render(source, el, ctx, next);
             };
@@ -1374,6 +1614,22 @@ class PlainTimelinePlugin extends Plugin {
         };
         group(['vertical', 'horizontal'], orientation, 'orientation');
         group(['cards', 'scale'], look, 'look');
+        // the time axis, only where there is one
+        if (look === 'scale') {
+          const sel = bar.createEl('select', { cls: 'ptl-switch-axis dropdown' });
+          sel.setAttr('aria-label', fmt.t.axisLabel);
+          const current = data.axisMode;
+          for (const mode of ['auto', 'linear', 'log', 'logstart', 'fit']) {
+            const opt = sel.createEl('option', { text: `${fmt.t.axisLabel}: ${fmt.t.axisNames[mode]}` });
+            opt.value = mode;
+            if (mode === current) opt.selected = true;
+          }
+          sel.onchange = async () => {
+            const next = { orientation, look, axis: sel.value };
+            const saved = await this.setFlags(el, ctx, source, next, data.optionLang || fmt.lang);
+            if (!saved) this.render(source, el, ctx, next);
+          };
+        }
       }
     }
     const renderer = orientation === 'horizontal'
@@ -1384,6 +1640,13 @@ class PlainTimelinePlugin extends Plugin {
     if (box && data.height) {
       box.style.maxHeight = `${data.height}px`;
       box.addClass('has-height');
+    }
+    // an axis that is not proportional says so, so lengths are not misread
+    if (look === 'scale') {
+      const mode = resolveAxis(data);
+      if (mode !== 'linear' || (data.zooms || []).length) {
+        el.createDiv({ cls: 'ptl-axis-note', text: fmt.t.axisNote(mode, data.axisMode === 'auto' && !(data.zooms || []).length) });
+      }
     }
     if (s.showWarnings) renderWarnings(el, data.warnings, fmt);
   }
@@ -1405,6 +1668,12 @@ class PlainTimelinePlugin extends Plugin {
     }
     if (next.look !== defaultLookFor(next.orientation)) {
       add.push(lang === 'ja' ? `> 見た目 ${next.look === 'scale' ? '時間軸' : 'カード'}` : `> look ${next.look}`);
+    }
+    if (next.axis && next.axis !== (s.defaultAxis || 'auto')) {
+      const words = lang === 'ja'
+        ? { auto: '自動', linear: '比例', log: '最近を広く', logstart: '始まりを広く', fit: '均等' }
+        : { auto: 'auto', linear: 'proportional', log: 'recent', logstart: 'early', fit: 'even' };
+      add.push(lang === 'ja' ? `> 縮尺 ${words[next.axis]}` : `> axis ${words[next.axis]}`);
     }
     let written = false;
     await this.app.vault.process(file, text => {
@@ -1583,6 +1852,7 @@ class PlainTimelineSettingTab extends PluginSettingTab {
     dropdown('language', t.language, [['auto', t.langAuto], ['en', t.langEn], ['ja', t.langJa]], () => this.display());
     dropdown('defaultOrientation', t.orientation, [['vertical', L.vertical], ['horizontal', L.horizontal]]);
     dropdown('defaultLook', t.look, [['auto', t.lookAuto], ['cards', L.cards], ['scale', L.scale]]);
+    dropdown('defaultAxis', t.axis, ['auto', 'linear', 'log', 'logstart', 'fit'].map(m => [m, L.axisNames[m]]));
     dropdown('inputOrder', t.inputOrder, [['ymd', t.orderYmd], ['dmy', t.orderDmy], ['mdy', t.orderMdy]]);
     new Setting(containerEl).setName(t.pivot[0]).setDesc(t.pivot[1])
       .addText(tx => tx.setValue(String(s.twoDigitPivot)).onChange(async v => {

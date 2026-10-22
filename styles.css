@@ -77,7 +77,11 @@
 .ptl-h-point.is-marker::before { border-radius: 0; transform: rotate(45deg); border-color: var(--ptl-c, var(--text-faint)); }
 .ptl-h-point.is-flipped { flex-direction: row-reverse; justify-content: flex-start; transform: none; }
 .ptl-h-point.is-flipped::before { margin: 0 0 0 4px; }
-.ptl-h-span.is-overflow .ptl-h-label { background: var(--background-primary); border-radius: 0 4px 4px 0; box-shadow: 0 0 0 1px var(--background-modifier-border); }
+/* a name longer than its bar is cut with an ellipsis; the hover note / tap detail shows it whole */
+/* a name longer than its bar wraps inside it and the bar grows taller: text never runs past the period's end */
+.ptl-h-span { min-height: 22px; align-items: flex-start; }
+.ptl-h-span .ptl-h-label { min-width: 0; white-space: normal; overflow-wrap: anywhere; line-height: 1.35; padding-top: 3px; padding-bottom: 3px; }
+.ptl-h-span.is-overflow.has-desc .ptl-h-label { border-bottom: 0; }
 .ptl-h-span.is-cut-start { border-left-style: dashed; border-top-left-radius: 0; border-bottom-left-radius: 0; }
 .ptl-h-span.is-cut-end { border-right: 1px dashed var(--ptl-c); }
 .is-cut-start > .ptl-h-label::before, .ptl-sv-label.is-cut-start .ptl-sv-date::before { content: '‹ '; color: var(--text-faint); }
@@ -87,7 +91,7 @@
 .ptl-h-label { font-size: .8em; color: var(--text-normal); white-space: nowrap; }
 .ptl-h-point .ptl-h-label { padding: 1px 6px; border-radius: 4px; background: var(--background-primary); }
 .ptl-h-point.has-desc .ptl-h-label, .ptl-h-span.has-desc .ptl-h-label { border-bottom: 1px dotted var(--text-faint); }
-.ptl-h-span { position: absolute; height: 22px; border-radius: 4px; display: flex; align-items: center;
+.ptl-h-span { position: absolute; border-radius: 4px; display: flex; align-items: center;
   background: var(--background-modifier-hover); border-left: 3px solid var(--ptl-c); }
 @supports (background: color-mix(in srgb, red 10%, transparent)) {
   .ptl-h-span { background: color-mix(in srgb, var(--ptl-c) 16%, transparent); }
@@ -186,7 +190,7 @@
 /* ── Options ────────────────────────────── */
 .ptl-compact .ptl-v-row { padding: 2px 0; }
 .ptl-compact .ptl-v-desc { font-size: .84em; line-height: 1.4; }
-.ptl-compact .ptl-h-point, .ptl-compact .ptl-h-span { height: 19px; }
+.ptl-compact .ptl-h-point { height: 19px; } .ptl-compact .ptl-h-span { min-height: 19px; }
 .ptl-desc-hover .ptl-v-desc { display: none; }
 .ptl-desc-hover .ptl-v-row:hover .ptl-v-desc, .ptl-desc-hover .ptl-v-row:focus-within .ptl-v-desc { display: block; }
 
@@ -203,8 +207,8 @@
 
 /* ── Touch devices (phones and tablets): larger targets ─── */
 .ptl-touch .ptl-horizontal { -webkit-overflow-scrolling: touch; }
-.ptl-touch .ptl-h-point, .ptl-touch .ptl-h-span { height: 30px; }
-.ptl-touch.ptl-compact .ptl-h-point, .ptl-touch.ptl-compact .ptl-h-span { height: 24px; }
+.ptl-touch .ptl-h-point { height: 30px; } .ptl-touch .ptl-h-span { min-height: 30px; }
+.ptl-touch.ptl-compact .ptl-h-point { height: 24px; } .ptl-touch.ptl-compact .ptl-h-span { min-height: 24px; }
 .ptl-touch .ptl-h-label { font-size: .86em; }
 .ptl-touch .ptl-switch button { height: 2.6em; padding: 0 13px; font-size: .8em; }
 .ptl-touch .ptl-sv-label { padding-top: 3px; padding-bottom: 3px; }
@@ -310,3 +314,11 @@
 .ptl-nv-head > :is(h1, h2, h3, h4).is-collapsed::after { display: none; }
 /* timelines inside an entry keep their own colors, not the entry's accent */
 .ptl-nv-body .ptl-host { --ptl-c: initial; }
+.ptl-h-legend-date { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+/* very short periods: the name runs down the bar in one line instead of breaking into letters */
+.ptl-h-span.is-vertical { justify-content: center; }
+.ptl-h-span.is-vertical .ptl-h-label { writing-mode: vertical-rl; white-space: nowrap; padding: 6px 0; line-height: 1.2; }
+.ptl-axis-note { font-size: var(--font-ui-smaller); color: var(--text-faint); margin: 2px 0 6px; }
+/* the time axis picker sits with the layout switch and matches its size */
+.ptl-switch .ptl-switch-axis { font-size: .72em; height: 1.95em; padding: 0 24px 0 8px; border-radius: 6px; min-width: 0; color: var(--text-muted); }
+.ptl-touch .ptl-switch .ptl-switch-axis { height: 2.7em; font-size: .8em; }
